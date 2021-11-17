@@ -18,16 +18,19 @@ function sign (message, address, secret) {
 
 class WebProperty {
   constructor (opt) {
-    if(opt && opt.dht){
-        this.dht = opt.dht
+    if(!opt){
+      opt.dht = new DHT({verify})
+      opt.takeOutInActive = false
     } else {
-      this.dht = new DHT()
+      if(!opt.dht){
+        opt.dht = new DHT({verify})
+      }
+      if(!opt.takeOutInActive){
+        opt.takeOutInActive = false
+      }
     }
-    if(opt && opt.takeOutInActive){
-      this.doNotKeepInActive = opt.takeOutInActive
-    } else {
-      this.doNotKeepInActive = false
-    }
+    this.dht = opt.dht
+    this.takeOutInActive = opt.takeOutInActive
     this.readyAndNotBusy = true
     this.properties = []
 
@@ -386,6 +389,6 @@ class WebProperty {
   }
 }
 
-module.exports = WebProperty
+module.exports = {WebProperty, verify}
 
 function noop () {}
