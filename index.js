@@ -20,14 +20,15 @@ class WebProperty {
   constructor (opt) {
     if(opt && opt.dht){
         this.dht = opt.dht
-      } else {
-        this.dht = new DHT()
-      }
+    } else {
+      this.dht = new DHT()
+    }
     if(opt && opt.takeOutInActive){
       this.doNotKeepInActive = opt.takeOutInActive
     } else {
       this.doNotKeepInActive = false
     }
+    this.readyAndNotBusy = true
     this.properties = []
 
     if(fs.existsSync('./data')){
@@ -37,7 +38,7 @@ class WebProperty {
   }
 
   /*
-  when keepItUpdated() runs, it can save only the address, infoHash, and seq and save to file without getData and putData using array.map(),
+  when keepItUpdated() runs, it can save only the address, infoHash, and seq and save to file without getData and putData using array.filter(),
   then use startUp() to get back the getData and putData from the dht because saving all that data will make the package a lot bigger
   */
   // async startUp(){
@@ -64,11 +65,12 @@ class WebProperty {
   // }
 
   /*
-  when keepItUpdated() runs, it can save only the address, infoHash, and seq and save to file without getData and putData using array.map(),
+  when keepItUpdated() runs, it can save only the address, infoHash, and seq and save to file without getData and putData using array.filter(),
   then use startUp() to get back the getData and putData from the dht because saving all that data will make the package a lot bigger
   */
 
   async keepItUpdated(){
+    this.readyAndNotBusy = false
     for(let i = 0;i < this.properties.length;i++){
       let res = await new Promise((resolve, reject) => {
         this.current(this.properties[i].address, (error, data) => {
@@ -107,10 +109,15 @@ class WebProperty {
       await new Promise(resolve => setTimeout(resolve, 3000))
     }
     if(this.doNotKeepInActive){
-      this.properties = this.properties.map(data => {return data.isActive === true})
+      this.properties = this.properties.filter(data => {return data.isActive})
     }
     fs.writeFileSync('./data', JSON.stringify(this.properties.map(main => {return {address: main.address, infoHash: main.infoHash, seq: main.seq, isActive: main.isActive, own: main.own}})))
-    setTimeout(() => {this.keepItUpdated()}, 3600000)
+    this.readyAndNotBusy = true
+    setTimeout(() => {
+      if(this.readyAndNotBusy){
+        this.keepItUpdated()
+      }
+    }, 3600000)
   }
 
   // might need it later, if we have a 100 torrents, then it would mean 100 lookups one after another, would be good to delay it for a few seconds
@@ -124,9 +131,9 @@ class WebProperty {
         return this.properties.map(data => {return {address: data.address, infoHash: data.infoHash, seq: data.seq, isActive: data.isActive, own: data.own}})
       } else {
         if(kind){
-          return this.properties.map(main => {return main[which.info] === which.data})
+          return this.properties.filter(main => {return main[which.info] === which.data})
         } else {
-          return this.properties.map(main => {return main[which.info] !== which.data})
+          return this.properties.filter(main => {return main[which.info] !== which.data})
         }
       }
     } catch (error) {
@@ -297,7 +304,7 @@ class WebProperty {
         }
       }
 
-      callback(null, {magnetURI, infoHash, seq, address: keypair.address, secret: keypair.secret, own: true, hash: hash.toString('hex')})
+      callback(null, {magnetURI, infoHash, seq, address: keypair.address, secret: keypair.secret, own: true, hash: hash.toString('hex'), number})
     })
   }
 
