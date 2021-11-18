@@ -91,6 +91,7 @@ class WebProperty {
         if(typeof(res.getData.seq) === 'number'){
           this.properties[i].seq = res.getData.seq
         }
+        this.properties[i].isActive = true
         this.properties[i].getData = res.getData
         this.properties[i].putData = res.putData
       } else if(this.properties[i].isActive){
@@ -104,6 +105,7 @@ class WebProperty {
           })
         })
         if(shareCopy){
+          this.properties[i].isActive = true
           this.properties[i].putData = shareCopy
         } else {
           this.properties[i].isActive = false
@@ -111,7 +113,7 @@ class WebProperty {
       }
       await new Promise(resolve => setTimeout(resolve, 3000))
     }
-    if(this.doNotKeepInActive){
+    if(this.takeOutInActive){
       this.properties = this.properties.filter(data => {return data.isActive})
     }
     fs.writeFileSync('./data', JSON.stringify(this.properties.map(main => {return {address: main.address, infoHash: main.infoHash, seq: main.seq, isActive: main.isActive, own: main.own}})))
@@ -245,6 +247,7 @@ class WebProperty {
             if(propertyData){
               propertyData.infoHash = infoHash
               propertyData.seq = seq
+              propertyData.isActive = true
             } else {
               this.properties.push({ address, infoHash, seq, own: false, isActive: true, getData: res })
             }
@@ -302,6 +305,7 @@ class WebProperty {
         if(propertyData){
           propertyData.infoHash = infoHash
           propertyData.seq = seq
+          propertyData.isActive = true
         } else {
           this.properties.push({address: keypair.address, infoHash, seq, own: true, isActive: true, putData: {hash, number}, getData})
         }
