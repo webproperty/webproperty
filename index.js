@@ -35,7 +35,7 @@ class WebProperty {
     this.properties = []
 
     if(fs.existsSync('./data')){
-      this.properties = JSON.parse(fs.readFileSync('./data'))
+      this.properties = JSON.parse(fs.readFileSync('./data').toString())
     }
     this.keepItUpdated()
   }
