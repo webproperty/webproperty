@@ -19,9 +19,13 @@ function sign (message, address, secret) {
 class WebProperty {
   constructor (opt) {
     if(!opt){
+      opt = {}
       opt.dht = new DHT({verify})
       opt.takeOutInActive = false
     } else {
+      if(typeof(opt) !== 'object' || Array.isArray(opt)){
+        opt = {}
+      }
       if(!opt.dht){
         opt.dht = new DHT({verify})
       }
