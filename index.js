@@ -2,6 +2,7 @@ const DHT = require('bittorrent-dht')
 const sodium = require('sodium-universal')
 const sha1 = require('simple-sha1')
 const fs = require('fs')
+const EventEmitter = require('events').EventEmitter
 
 const BTPK_PREFIX = 'urn:btpk:'
 const BITH_PREFIX = 'urn:btih:'
@@ -16,8 +17,9 @@ function sign (message, address, secret) {
   return signature
 }
 
-class WebProperty {
+class WebProperty extends EventEmitter {
   constructor (opt) {
+    super()
     if(!opt){
       opt = {}
       opt.dht = new DHT({verify})
@@ -89,15 +91,25 @@ class WebProperty {
         })
       })
       if(res){
-        if(Buffer.isBuffer(res.getData.v)){
+        if(Buffer.isBuffer(res.getData.v) && typeof(res.getData.seq) === 'number'){
+          let tempInfoHash = this.properties[i].infoHash
+          
           this.properties[i].infoHash = res.getData.v.toString('hex')
-        }
-        if(typeof(res.getData.seq) === 'number'){
           this.properties[i].seq = res.getData.seq
+          this.properties[i].isActive = true
+          this.properties[i].getData = res.getData
+          this.properties[i].putData = res.putData
+
+          if(this.properties[i].infoHash !== tempInfoHash){
+            this.emit('update', {old: tempInfoHash, new: this.properties[i]})
+          }
+        } else {
+          this.properties[i].isActive = false
+
+          if(this.takeOutInActive){
+            this.emit('inactive', this.properties[i])
+          }
         }
-        this.properties[i].isActive = true
-        this.properties[i].getData = res.getData
-        this.properties[i].putData = res.putData
       } else if(this.properties[i].isActive){
         let shareCopy = await new Promise((resolve, reject) => {
           this.dht.put(this.properties[i].getData, (error, hash, number) => {
@@ -113,6 +125,9 @@ class WebProperty {
           this.properties[i].putData = shareCopy
         } else {
           this.properties[i].isActive = false
+          if(this.takeOutInActive){
+            this.emit('inactive', this.properties[i])
+          }
         }
       }
       await new Promise(resolve => setTimeout(resolve, 3000))
@@ -121,6 +136,7 @@ class WebProperty {
       this.properties = this.properties.filter(data => {return data.isActive})
     }
     fs.writeFileSync('./data', JSON.stringify(this.properties.map(main => {return {address: main.address, infoHash: main.infoHash, seq: main.seq, isActive: main.isActive, own: main.own}})))
+    this.emit('status', 'there are ' + this.properties.length + ' properties being resolved, we rely on you, thank you')
     this.readyAndNotBusy = true
     setTimeout(() => {
       if(this.readyAndNotBusy){
@@ -327,14 +343,13 @@ class WebProperty {
     const buffAddKey = Buffer.from(address, 'hex')
 
     sha1(buffAddKey, (targetID) => {
-      const dht = this.dht
 
-      dht.get(targetID, (getErr, getData) => {
+      this.dht.get(targetID, (getErr, getData) => {
         if (getErr) {
           return callback(getErr)
         }
 
-        dht.put(getData, (putErr, hash, number) => {
+        this.dht.put(getData, (putErr, hash, number) => {
           if(putErr){
             return callback(putErr)
           } else {
