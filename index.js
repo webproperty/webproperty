@@ -39,6 +39,7 @@ class WebProperty extends EventEmitter {
     this.takeOutInActive = opt.takeOutInActive
     this.readyAndNotBusy = true
     this.properties = []
+    this.checks = []
 
     if(fs.existsSync('./data')){
       this.properties = JSON.parse(fs.readFileSync('./data').toString())
@@ -182,21 +183,33 @@ class WebProperty extends EventEmitter {
     }
   }
 
-  removeProperty(address){
+  garbage(address){
+    if(typeof(address) !== 'string' || this.checks.includes(address)){
+      return false
+    } else {
+      this.checks.push(address)
+      return true
+    }
+  }
 
-    let lookAtProperty = this.getProperty(address, false)
+  shred(address, callback){
+    if(!callback){
+      callback = function(){}
+    }
+    // let lookAtProperty = this.search(address, false)
+    let lookAtProperty = this.search(address, true)
 
     if(lookAtProperty !== null){
       this.properties = this.properties.filter(data => {return data.address !== address})
       // this.properties.splice(lookAtProperty, 1)
-      return 'address has been removed'
+      return callback(null, lookAtProperty)
     } else {
-      return 'address is not managed'
+      return callback(new Error('can not find property'))
     }
 
   }
 
-  getProperty(address, data){
+  search(address, data){
     let iter = null
     for(let i = 0;i < this.properties.length;i++){
       if(this.properties[i].address === address){
@@ -213,7 +226,7 @@ class WebProperty extends EventEmitter {
   //     callback = noop
   //   }
 
-  //   let lookAtProperty = this.getProperty(address, true)
+  //   let lookAtProperty = this.search(address, true)
 
   //   if(lookAtProperty){
   //     this.resolve(address, false, (error, data) => {
@@ -236,7 +249,7 @@ class WebProperty extends EventEmitter {
       callback = () => noop
     }
 
-    address = this.addressFromLink(address)
+    // address = this.addressFromLink(address)
     if(!address){
       return callback(new Error('address can not be parsed'))
     }
@@ -244,7 +257,7 @@ class WebProperty extends EventEmitter {
 
     let propertyData = null
     if(manage){
-      propertyData = this.getProperty(address, true)
+      propertyData = this.search(address, true)
       // if(propertyData){
       //   return callback(new Error('address key is already managed'))
       // }
@@ -301,7 +314,7 @@ class WebProperty extends EventEmitter {
     }
     let propertyData = null
     if(manage){
-      propertyData = this.getProperty(keypair.address, true)
+      propertyData = this.search(keypair.address, true)
       if(propertyData){
         seq = propertyData.seq + 1
         if(propertyData.infoHash === infoHash){
