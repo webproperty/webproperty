@@ -136,6 +136,10 @@ class WebProperty extends EventEmitter {
     if(this.takeOutInActive){
       this.properties = this.properties.filter(data => {return data.isActive})
     }
+    if(this.checks.length){
+      this.properties = this.properties.filter(data => {return !this.checks.includes(data.address)})
+      this.checks = []
+    }
     fs.writeFileSync('./data', JSON.stringify(this.properties.map(main => {return {address: main.address, infoHash: main.infoHash, seq: main.seq, isActive: main.isActive, own: main.own}})))
     this.emit('status', 'there are ' + this.properties.length + ' properties being resolved, we rely on you, thank you')
     this.readyAndNotBusy = true
