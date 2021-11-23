@@ -95,6 +95,7 @@ class WebProperty extends EventEmitter {
       if(res){
         if(Buffer.isBuffer(res.getData.v) && typeof(res.getData.seq) === 'number'){
           let tempInfoHash = this.properties[i].infoHash
+          let tempSeq = this.properties[i].seq
           
           this.properties[i].infoHash = res.getData.v.toString('hex')
           this.properties[i].seq = res.getData.seq
@@ -102,8 +103,8 @@ class WebProperty extends EventEmitter {
           this.properties[i].getData = res.getData
           this.properties[i].putData = res.putData
 
-          if(this.properties[i].infoHash !== tempInfoHash){
-            this.emit('update', {old: tempInfoHash, new: this.properties[i]})
+          if(tempInfoHash !== this.properties[i].infoHash || tempSeq !== this.properties[i].seq){
+            this.emit('update', {old: {infoHash: tempInfoHash, seq: tempSeq}, new: this.properties[i], sameInfoHash: tempInfoHash === this.properties[i].infoHash, sameSeq: tempSeq === this.properties[i].seq})
           }
         } else {
           this.emit('error', new Error('error with ' + this.properties[i].address + ', the property is not following corect structure, going inactive'))
