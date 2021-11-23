@@ -265,7 +265,10 @@ class WebProperty extends EventEmitter {
 
     let propertyData = null
     if(manage){
-      propertyData = this.search(address).data
+      propertyData = this.search(address)
+      if(propertyData){
+        propertyData = propertyData.data
+      }
       // if(propertyData){
       //   return callback(new Error('address key is already managed'))
       // }
@@ -322,8 +325,9 @@ class WebProperty extends EventEmitter {
     }
     let propertyData = null
     if(manage){
-      propertyData = this.search(keypair.address).data
+      propertyData = this.search(keypair.address)
       if(propertyData){
+        propertyData = propertyData.data
         seq = propertyData.seq + 1
         if(propertyData.infoHash === infoHash){
           return callback(new Error('address key is already attached to this infoHash'))

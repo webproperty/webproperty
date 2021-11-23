@@ -263,7 +263,10 @@ class WebProperty extends EventEmitter {
     }
     const addressKey = Buffer.from(address, 'hex')
 
-    let propertyData = this.search(address).data
+    let propertyData = this.search(address)
+    if(propertyData){
+      propertyData = propertyData.data
+    }
 
     sha1(addressKey, (targetID) => {
       this.dht.get(targetID, (err, res) => {
@@ -312,7 +315,10 @@ class WebProperty extends EventEmitter {
     if((!keypair) || (!keypair.address || !keypair.secret)){
       keypair = this.createKeypair(false)
     }
-    let propertyData = this.search(keypair.address).data
+    let propertyData = this.search(keypair.address)
+    if(propertyData){
+      propertyData = propertyData.data
+    }
     if(propertyData){
       seq = propertyData.seq + 1
       if(propertyData.infoHash === infoHash){
