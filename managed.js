@@ -81,6 +81,7 @@ class WebProperty extends EventEmitter {
 
   async keepItUpdated(){
     this.readyAndNotBusy = false
+    this.emit('check', {message: 'there are ' + this.properties.length + ' properties being resolved, we rely on you, thank you', status: false})
     for(let i = 0;i < this.properties.length;i++){
       let res = await new Promise((resolve, reject) => {
         this.current(this.properties[i].address, (error, data) => {
@@ -105,6 +106,7 @@ class WebProperty extends EventEmitter {
             this.emit('update', {old: tempInfoHash, new: this.properties[i]})
           }
         } else {
+          this.emit('error', new Error('error with ' + this.properties[i].address + ', the property is not following corect structure, going inactive'))
           this.properties[i].isActive = false
 
           if(this.takeOutInActive){
@@ -141,7 +143,7 @@ class WebProperty extends EventEmitter {
       this.checks = []
     }
     fs.writeFileSync('./data', JSON.stringify(this.properties.map(main => {return {address: main.address, infoHash: main.infoHash, seq: main.seq, isActive: main.isActive, own: main.own}})))
-    this.emit('status', 'there are ' + this.properties.length + ' properties being resolved, we rely on you, thank you')
+    this.emit('check', {message: 'there are ' + this.properties.length + ' properties being resolved, we rely on you, thank you', status: true})
     this.readyAndNotBusy = true
     setTimeout(() => {
       if(this.readyAndNotBusy){
@@ -204,12 +206,10 @@ class WebProperty extends EventEmitter {
     if(!callback){
       callback = function(){}
     }
-    // let lookAtProperty = this.search(address, false)
-    let lookAtProperty = this.search(address, true)
+    let lookAtProperty = this.search(address)
 
-    if(lookAtProperty !== null){
-      this.properties = this.properties.filter(data => {return data.address !== address})
-      // this.properties.splice(lookAtProperty, 1)
+    if(lookAtProperty){
+      this.properties.splice(lookAtProperty.index, 1)
       return callback(null, lookAtProperty)
     } else {
       return callback(new Error('can not find property'))
@@ -217,11 +217,11 @@ class WebProperty extends EventEmitter {
 
   }
 
-  search(address, data){
+  search(address){
     let iter = null
     for(let i = 0;i < this.properties.length;i++){
       if(this.properties[i].address === address){
-        iter = data ? this.properties[i] : i
+        iter = {data: this.properties[i], index: i}
         break
         // return this.properties[i]
       }
@@ -263,7 +263,7 @@ class WebProperty extends EventEmitter {
     }
     const addressKey = Buffer.from(address, 'hex')
 
-    let propertyData = this.search(address, true)
+    let propertyData = this.search(address).data
 
     sha1(addressKey, (targetID) => {
       this.dht.get(targetID, (err, res) => {
@@ -312,7 +312,7 @@ class WebProperty extends EventEmitter {
     if((!keypair) || (!keypair.address || !keypair.secret)){
       keypair = this.createKeypair(false)
     }
-    let propertyData = this.search(keypair.address, true)
+    let propertyData = this.search(keypair.address).data
     if(propertyData){
       seq = propertyData.seq + 1
       if(propertyData.infoHash === infoHash){
