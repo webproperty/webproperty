@@ -104,7 +104,7 @@ class WebProperty extends EventEmitter {
           this.properties[i].putData = res.putData
 
           if(tempInfoHash !== this.properties[i].infoHash || tempSeq !== this.properties[i].seq){
-            this.emit('update', {old: {infoHash: tempInfoHash, seq: tempSeq}, new: this.properties[i], sameInfoHash: tempInfoHash === this.properties[i].infoHash, sameSeq: tempSeq === this.properties[i].seq})
+            this.emit('update', {address: this.properties[i].address, old: {infoHash: tempInfoHash, seq: tempSeq}, new: this.properties[i], sameInfoHash: tempInfoHash === this.properties[i].infoHash, sameSeq: tempSeq === this.properties[i].seq})
           }
         } else {
           this.emit('error', new Error('error with ' + this.properties[i].address + ', the property is not following corect structure, going inactive'))
