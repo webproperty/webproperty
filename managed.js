@@ -41,10 +41,7 @@ class WebProperty extends EventEmitter {
     this.properties = []
     this.checks = []
 
-    if(fs.existsSync('./data')){
-      this.properties = JSON.parse(fs.readFileSync('./data').toString())
-    }
-    this.keepItUpdated()
+    this.startUp()
   }
 
   /*
@@ -78,6 +75,45 @@ class WebProperty extends EventEmitter {
   when keepItUpdated() runs, it can save only the address, infoHash, and seq and save to file without getData and putData using array.filter(),
   then use startUp() to get back the getData and putData from the dht because saving all that data will make the package a lot bigger
   */
+
+  async startUp(){
+    if(fs.existsSync('./data')){
+      let content = await new Promise((resolve, reject) => {
+        fs.readFile('./data', (error, data) => {
+          if(error){
+            console.log(error)
+            reject(false)
+          } else if(data){
+            resolve(data)
+          } else if(!data){
+            console.log(new Error('did not find a file to read'))
+            reject(false)
+          }
+        })
+      })
+      this.properties = JSON.parse(content.toString())
+    }
+    this.keepItSaved()
+    this.keepItUpdated()
+  }
+
+  async keepItSaved(){
+    await new Promise((resolve, reject) => {
+      fs.writeFile('./data', JSON.stringify(this.properties.map(main => {return {address: main.address, infoHash: main.infoHash, seq: main.seq, isActive: main.isActive, own: main.own}})), error => {
+        if(error){
+          console.log(error)
+          reject(false)
+        } else {
+          resolve(true)
+        }
+      })
+    })
+    setTimeout(() => {
+      if(this.readyAndNotBusy){
+        this.keepItSaved()
+      }
+    }, 180000)
+  }
 
   async keepItUpdated(){
     this.readyAndNotBusy = false
@@ -143,7 +179,16 @@ class WebProperty extends EventEmitter {
       this.properties = this.properties.filter(data => {return !this.checks.includes(data.address)})
       this.checks = []
     }
-    fs.writeFileSync('./data', JSON.stringify(this.properties.map(main => {return {address: main.address, infoHash: main.infoHash, seq: main.seq, isActive: main.isActive, own: main.own}})))
+    await new Promise((resolve, reject) => {
+      fs.writeFile('./data', JSON.stringify(this.properties.map(main => {return {address: main.address, infoHash: main.infoHash, seq: main.seq, isActive: main.isActive, own: main.own}})), error => {
+        if(error){
+          console.log(error)
+          reject(false)
+        } else {
+          resolve(true)
+        }
+      })
+    })
     this.emit('check', {message: 'there are ' + this.properties.length + ' properties being resolved, we rely on you, thank you', status: true})
     this.readyAndNotBusy = true
     setTimeout(() => {
