@@ -77,21 +77,24 @@ class WebProperty extends EventEmitter {
   */
 
   async startUp(){
+    let content = null
     if(fs.existsSync('./data')){
-      let content = await new Promise((resolve, reject) => {
+      content = await new Promise((resolve, reject) => {
         fs.readFile('./data', (error, data) => {
           if(error){
             console.log(error)
             reject(false)
           } else if(data){
-            resolve(data)
+            resolve(data.toString())
           } else if(!data){
             console.log(new Error('did not find a file to read'))
             reject(false)
           }
         })
       })
-      this.properties = JSON.parse(content.toString())
+    }
+    if(content){
+      this.properties = JSON.parse(content)
     }
     this.keepItSaved()
     this.keepItUpdated()
