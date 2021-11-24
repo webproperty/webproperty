@@ -77,6 +77,7 @@ class WebProperty extends EventEmitter {
   */
 
   async startUp(){
+    this.emit('start', false)
     let content = null
     if(fs.existsSync('./data')){
       content = await new Promise((resolve, reject) => {
@@ -96,6 +97,7 @@ class WebProperty extends EventEmitter {
     if(content){
       this.properties = JSON.parse(content)
     }
+    this.emit('start', true)
     this.keepItSaved()
     this.keepItUpdated()
   }
