@@ -98,8 +98,8 @@ class WebProperty extends EventEmitter {
       this.properties = JSON.parse(content)
     }
     this.emit('start', true)
-    this.keepItSaved()
-    this.keepItUpdated()
+    this.keepItSaved().catch(error => {this.emit('error', error)})
+    this.keepItUpdated().catch(error => {this.emit('error', error)})
   }
 
   async keepItSaved(){
@@ -115,7 +115,9 @@ class WebProperty extends EventEmitter {
     })
     setTimeout(() => {
       if(this.readyAndNotBusy){
-        this.keepItSaved()
+        this.keepItSaved().catch(error => {
+          this.emit('error', error)
+        })
       }
     }, 180000)
   }
@@ -198,7 +200,9 @@ class WebProperty extends EventEmitter {
     this.readyAndNotBusy = true
     setTimeout(() => {
       if(this.readyAndNotBusy){
-        this.keepItUpdated()
+        this.keepItUpdated().catch(error => {
+          this.emit('error', error)
+        })
       }
     }, 3600000)
   }
