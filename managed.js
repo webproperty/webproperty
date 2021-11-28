@@ -2,6 +2,8 @@ const DHT = require('bittorrent-dht')
 const sodium = require('sodium-universal')
 const sha1 = require('simple-sha1')
 const fs = require('fs')
+const path = require('path')
+const level = require('level')
 const EventEmitter = require('events').EventEmitter
 
 const BTPK_PREFIX = 'urn:btpk:'
