@@ -92,7 +92,7 @@ class WebProperty extends EventEmitter {
     tempContents = null
     for(let i = 0;i < this.properties.length;i++){
       await new Promise((resolve, reject) => {
-        fs.writeFile(this.folder + path.sep + this.properties[i].address, JSON.stringify({address: this.properties[i].address, infoHash: this.properties[i].infoHash, seq: this.properties[i].seq, own: this.properties[i].own, active: this.properties[i].active, magnet: this.properties[i].magnet}), error => {
+        fs.writeFile(this.folder + path.sep + this.properties[i].address, JSON.stringify({address: this.properties[i].address, infoHash: this.properties[i].infoHash, seq: this.properties[i].seq, active: this.properties[i].active, magnet: this.properties[i].magnet}), error => {
           if(error){
             this.emit('error', error)
             reject(false)
@@ -202,7 +202,7 @@ class WebProperty extends EventEmitter {
 
   getAll(which, kind){
     if(!which){
-      return this.properties.map(data => {return {address: data.address, infoHash: data.infoHash, seq: data.seq, active: data.active, own: data.own, magnet: data.magnet}})
+      return this.properties.map(data => {return {address: data.address, infoHash: data.infoHash, seq: data.seq, active: data.active, magnet: data.magnet}})
     } else {
       if(Array.isArray(which) || typeof(which) !== 'object'){
         return null
@@ -322,23 +322,21 @@ class WebProperty extends EventEmitter {
           } else {
             const infoHash = res.v.toString('hex')
             const seq = res.seq
-            const own = false
             const active = true
             const magnet = `magnet:?xs=${BTPK_PREFIX}${address}`
-            this.database.put(address, JSON.stringify({address, infoHash, seq, own, magnet, active}), error => {
+            this.database.put(address, JSON.stringify({address, infoHash, seq, magnet, active}), error => {
               if(error){
                 return callback(error)
               } else {
                 if(propertyData){
                   propertyData.infoHash = infoHash
                   propertyData.seq = seq
-                  propertyData.own = own
                   propertyData.active = active
                   propertyData.magnet = magnet
                 } else {
-                  this.properties.push({ address, infoHash, seq, own, magnet, active, getData: res })
+                  this.properties.push({ address, infoHash, seq, magnet, active, getData: res })
                 }
-                return callback(null, { address, infoHash, seq, own, magnet, active })
+                return callback(null, { address, infoHash, seq, magnet, active })
               }
             })
           }
@@ -382,7 +380,6 @@ class WebProperty extends EventEmitter {
     const buffAddKey = Buffer.from(keypair.address, 'hex')
     const buffSecKey = Buffer.from(keypair.secret, 'hex')
     const getData = {k: buffAddKey, v: Buffer.from(infoHash, 'hex'), seq, sign: (buf) => {return sign(buf, buffAddKey, buffSecKey)}}
-    const own = true
     const active = true
     const magnet = `magnet:?xs=${BTPK_PREFIX}${keypair.address}`
 
@@ -390,20 +387,19 @@ class WebProperty extends EventEmitter {
       if(putErr){
         return callback(putErr)
       } else {
-        this.database.put(keypair.address, JSON.stringify({address: keypair.address, infoHash, seq, own, active, magnet}), error => {
+        this.database.put(keypair.address, JSON.stringify({address: keypair.address, infoHash, seq, active, magnet}), error => {
           if(error){
             return callback(error)
           } else {
             if(propertyData){
               propertyData.infoHash = infoHash
               propertyData.seq = seq
-              propertyData.own = own
               propertyData.active = active
               propertyData.magnet = magnet
             } else {
-              this.properties.push({address: keypair.address, infoHash, seq, own, active, magnet, putData: {hash, number}, getData})
+              this.properties.push({address: keypair.address, infoHash, seq, active, magnet, putData: {hash, number}, getData})
             }
-            return callback(null, {magnet, infoHash, seq, address: keypair.address, magnet, secret: keypair.secret, own, hash: hash.toString('hex'), number})
+            return callback(null, {magnet, infoHash, seq, address: keypair.address, magnet, secret: keypair.secret, hash: hash.toString('hex'), number})
           }
         })
       }
