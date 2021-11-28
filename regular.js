@@ -60,6 +60,35 @@ class WebProperty extends EventEmitter {
     await this.keepItUpdated()
   }
 
+  async keepItActive(){
+    let tempProps = this.properties.filter(data => {return !data.active})
+    for(let i = 0;i < tempProps.length;i++){
+      await new Promise((resolve, reject) => {
+        this.database.del(tempProps[i].address, error => {
+          if(error){
+            this.emit('error', error)
+            reject(false)
+          } else {
+            resolve(true)
+          }
+        })
+      })
+      await new Promise((resolve, reject) => {
+        fs.rm(this.folder + path.sep + tempProps[i].address, {force: true}, error => {
+          if(error){
+            this.emit('error', error)
+            reject(false)
+          } else {
+            resolve(true)
+          }
+        })
+      })
+      this.emit('dead', tempProps[i])
+    }
+    this.properties = this.properties.filter(data => {return data.active})
+    tempProps = null
+  }
+
   async keepItSaved(){
     let contents = await new Promise((resolve, reject) => {
       fs.readdir(this.folder, {withFileTypes: true}, (error, data) => {
@@ -92,7 +121,7 @@ class WebProperty extends EventEmitter {
     tempContents = null
     for(let i = 0;i < this.properties.length;i++){
       await new Promise((resolve, reject) => {
-        fs.writeFile(this.folder + path.sep + this.properties[i].address, JSON.stringify({address: this.properties[i].address, infoHash: this.properties[i].infoHash, seq: this.properties[i].seq, own: this.properties[i].own, active: this.properties[i].active, magnet: this.properties[i].magnet}), error => {
+        fs.writeFile(this.folder + path.sep + this.properties[i].address, JSON.stringify({address: this.properties[i].address, infoHash: this.properties[i].infoHash, seq: this.properties[i].seq, active: this.properties[i].active, magnet: this.properties[i].magnet}), error => {
           if(error){
             this.emit('error', error)
             reject(false)
@@ -160,32 +189,7 @@ class WebProperty extends EventEmitter {
     }
     
     if(this.takeOutInActive){
-      let tempProps = this.properties.filter(data => {return !data.active})
-      for(let i = 0;i < tempProps.length;i++){
-        await new Promise((resolve, reject) => {
-          this.database.del(tempProps[i].address, error => {
-            if(error){
-              this.emit('error', error)
-              reject(false)
-            } else {
-              resolve(true)
-            }
-          })
-        })
-        await new Promise((resolve, reject) => {
-          fs.rm(this.folder + path.sep + tempProps[i].address, {force: true}, error => {
-            if(error){
-              this.emit('error', error)
-              reject(false)
-            } else {
-              resolve(true)
-            }
-          })
-        })
-        this.emit('dead', tempProps[i])
-      }
-      this.properties = this.properties.filter(data => {return data.active})
-      tempProps = null
+      await this.keepItActive()
     }
 
     await this.keepItSaved()
@@ -202,7 +206,7 @@ class WebProperty extends EventEmitter {
 
   getAll(which, kind){
     if(!which){
-      return this.properties.map(data => {return {address: data.address, infoHash: data.infoHash, seq: data.seq, active: data.active, own: data.own, magnet: data.magnet}})
+      return this.properties.map(data => {return {address: data.address, infoHash: data.infoHash, seq: data.seq, active: data.active, magnet: data.magnet}})
     } else {
       if(Array.isArray(which) || typeof(which) !== 'object'){
         return null
@@ -323,29 +327,27 @@ class WebProperty extends EventEmitter {
 
             const infoHash = res.v.toString('hex')
             const seq = res.seq
-            const own = false
             const active = true
             const magnet = `magnet:?xs=${BTPK_PREFIX}${address}`
   
             if(manage){
-              this.database.put(address, JSON.stringify({address, infoHash, seq, own, magnet, active}), error => {
+              this.database.put(address, JSON.stringify({address, infoHash, seq, magnet, active}), error => {
                 if(error){
                   return callback(error)
                 } else {
                   if(propertyData){
                     propertyData.infoHash = infoHash
                     propertyData.seq = seq
-                    propertyData.own = own
                     propertyData.active = active
                     propertyData.magnet = magnet
                   } else {
-                    this.properties.push({ address, infoHash, seq, own, magnet, active, getData: res })
+                    this.properties.push({ address, infoHash, seq, magnet, active, getData: res })
                   }
-                  return callback(null, { address, infoHash, seq, own, magnet, active })
+                  return callback(null, { address, infoHash, seq, magnet, active })
                 }
               })
             } else {
-              return callback(null, { address, infoHash, seq, own, magnet, active })
+              return callback(null, { address, infoHash, seq, magnet, active })
             }
 
           }
@@ -390,7 +392,6 @@ class WebProperty extends EventEmitter {
     const buffAddKey = Buffer.from(keypair.address, 'hex')
     const buffSecKey = Buffer.from(keypair.secret, 'hex')
     const getData = {k: buffAddKey, v: Buffer.from(infoHash, 'hex'), seq, sign: (buf) => {return sign(buf, buffAddKey, buffSecKey)}}
-    const own = true
     const active = true
     const magnet = `magnet:?xs=${BTPK_PREFIX}${keypair.address}`
 
@@ -399,24 +400,23 @@ class WebProperty extends EventEmitter {
         return callback(putErr)
       } else {
         if(manage){
-          this.database.put(keypair.address, JSON.stringify({address: keypair.address, infoHash, seq, own, active, magnet}), error => {
+          this.database.put(keypair.address, JSON.stringify({address: keypair.address, infoHash, seq, active, magnet}), error => {
             if(error){
               return callback(error)
             } else {
               if(propertyData){
                 propertyData.infoHash = infoHash
                 propertyData.seq = seq
-                propertyData.own = own
                 propertyData.active = active
                 propertyData.magnet = magnet
               } else {
-                this.properties.push({address: keypair.address, infoHash, seq, own, active, magnet, putData: {hash, number}, getData})
+                this.properties.push({address: keypair.address, infoHash, seq, active, magnet, putData: {hash, number}, getData})
               }
-              return callback(null, {magnet, infoHash, seq, address: keypair.address, magnet, secret: keypair.secret, own, hash: hash.toString('hex'), number})
+              return callback(null, {magnet, infoHash, seq, address: keypair.address, magnet, secret: keypair.secret, hash: hash.toString('hex'), number})
             }
           })
         } else {
-          return callback(null, {magnet, infoHash, seq, address: keypair.address, secret: keypair.secret, own, hash: hash.toString('hex'), number})
+          return callback(null, {magnet, infoHash, seq, address: keypair.address, secret: keypair.secret, hash: hash.toString('hex'), number})
         }
       }
     })

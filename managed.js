@@ -60,6 +60,35 @@ class WebProperty extends EventEmitter {
     await this.keepItUpdated()
   }
 
+  async keepItActive(){
+    let tempProps = this.properties.filter(data => {return !data.active})
+    for(let i = 0;i < tempProps.length;i++){
+      await new Promise((resolve, reject) => {
+        this.database.del(tempProps[i].address, error => {
+          if(error){
+            this.emit('error', error)
+            reject(false)
+          } else {
+            resolve(true)
+          }
+        })
+      })
+      await new Promise((resolve, reject) => {
+        fs.rm(this.folder + path.sep + tempProps[i].address, {force: true}, error => {
+          if(error){
+            this.emit('error', error)
+            reject(false)
+          } else {
+            resolve(true)
+          }
+        })
+      })
+      this.emit('dead', tempProps[i])
+    }
+    this.properties = this.properties.filter(data => {return data.active})
+    tempProps = null
+  }
+
   async keepItSaved(){
     let contents = await new Promise((resolve, reject) => {
       fs.readdir(this.folder, {withFileTypes: true}, (error, data) => {
@@ -160,32 +189,7 @@ class WebProperty extends EventEmitter {
     }
 
     if(this.takeOutInActive){
-      let tempProps = this.properties.filter(data => {return !data.active})
-      for(let i = 0;i < tempProps.length;i++){
-        await new Promise((resolve, reject) => {
-          this.database.del(tempProps[i].address, error => {
-            if(error){
-              this.emit('error', error)
-              reject(false)
-            } else {
-              resolve(true)
-            }
-          })
-        })
-        await new Promise((resolve, reject) => {
-          fs.rm(this.folder + path.sep + tempProps[i].address, {force: true}, error => {
-            if(error){
-              this.emit('error', error)
-              reject(false)
-            } else {
-              resolve(true)
-            }
-          })
-        })
-        this.emit('dead', tempProps[i])
-      }
-      this.properties = this.properties.filter(data => {return data.active})
-      tempProps = null
+      await this.keepItActive()
     }
 
     await this.keepItSaved()
