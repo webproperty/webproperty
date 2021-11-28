@@ -2,6 +2,8 @@ const DHT = require('bittorrent-dht')
 const sodium = require('sodium-universal')
 const sha1 = require('simple-sha1')
 const fs = require('fs')
+const path = require('path')
+const level = require('level')
 const EventEmitter = require('events').EventEmitter
 
 const BTPK_PREFIX = 'urn:btpk:'
@@ -36,131 +38,109 @@ class WebProperty extends EventEmitter {
       }
     }
     this.dht = opt.dht
+    this.database = level('database')
+    if(!fs.existsSync('./folder')){
+      fs.mkdirSync('./folder', {recursive: true})
+    }
+    this.folder = path.resolve('./folder')
     this.takeOutInActive = opt.takeOutInActive
     this.readyAndNotBusy = true
     this.properties = []
-    this.checks = []
+    // this.checks = []
 
-    this.startUp()
+    this.startUp().catch(error => {
+      this.emit('error', error)
+    })
   }
 
-  /*
-  when keepItUpdated() runs, it can save only the address, infoHash, and seq and save to file without getData and putData using array.filter(),
-  then use startUp() to get back the getData and putData from the dht because saving all that data will make the package a lot bigger
-  */
-  // async startUp(){
-  //   if(fs.existsSync('./data')){
-  //     this.properties = JSON.parse(fs.readFileSync('./data'))
-  //   }
-  //   for(let i = 0;i < this.properties.length;i++){
-  //     let res = await new Promise((resolve, reject) => {
-  //       this.current(this.properties[i].address, (error, data) => {
-  //         if(error){
-  //           reject(null)
-  //         } else {
-  //           resolve(data)
-  //         }
-  //       })
-  //     })
-  //     if(res){
-  //       this.properties[i].infoHash = res.getData.v.ih ? res.v.ih : this.properties[i].infoHash
-  //       this.properties[i].seq = res.getData.seq ? res.seq : this.properties[i].seq
-  //       this.properties[i].getData = res.getData
-  //       this.properties[i].putData = res.putData
-  //     }
-  //   }
-  // }
-
-  /*
-  when keepItUpdated() runs, it can save only the address, infoHash, and seq and save to file without getData and putData using array.filter(),
-  then use startUp() to get back the getData and putData from the dht because saving all that data will make the package a lot bigger
-  */
-
   async startUp(){
-    this.emit('start', false)
-    let content = null
-    if(fs.existsSync('./data')){
-      content = await new Promise((resolve, reject) => {
-        fs.readFile('./data', (error, data) => {
+    for await (const [key, value] of this.database.iterator()){
+      this.properties.push(JSON.parse(value))
+    }
+    await this.keepItUpdated()
+  }
+
+  async keepItSaved(){
+    let contents = await new Promise((resolve, reject) => {
+      fs.readdir(this.folder, {withFileTypes: true}, (error, data) => {
+        if(error){
+          this.emit('error', error)
+          reject(null)
+        } else if(!data){
+          this.emit('error', new Error('can not find the directory of the properties'))
+          reject(null)
+        } else if(data){
+          resolve(data)
+        }
+      })
+    })
+    let tempContents = this.properties.map(data => {return data.address})
+    contents = contents.filter(data => {return !tempContents.includes(data)})
+    for(let i = 0;i < contents.length;i++){
+      await new Promise((resolve, reject) => {
+        fs.rm(this.folder + path.sep + contents[i], {force: true}, error => {
           if(error){
-            console.log(error)
+            this.emit('error', error)
             reject(false)
-          } else if(data){
-            resolve(data.toString())
-          } else if(!data){
-            console.log(new Error('did not find a file to read'))
-            reject(false)
+          } else {
+            resolve(true)
           }
         })
       })
     }
-    if(content){
-      this.properties = JSON.parse(content)
-    }
-    this.emit('start', true)
-    this.keepItSaved().catch(error => {this.emit('error', error)})
-    this.keepItUpdated().catch(error => {this.emit('error', error)})
-  }
-
-  async keepItSaved(){
-    await new Promise((resolve, reject) => {
-      fs.writeFile('./data', JSON.stringify(this.properties.map(main => {return {address: main.address, infoHash: main.infoHash, seq: main.seq, isActive: main.isActive, own: main.own}})), error => {
-        if(error){
-          console.log(error)
-          reject(false)
-        } else {
-          resolve(true)
-        }
-      })
-    })
-    setTimeout(() => {
-      if(this.readyAndNotBusy){
-        this.keepItSaved().catch(error => {
-          this.emit('error', error)
+    contents = null
+    tempContents = null
+    for(let i = 0;i < this.properties.length;i++){
+      await new Promise((resolve, reject) => {
+        fs.writeFile(this.folder + path.sep + this.properties[i].address, JSON.stringify({address: this.properties[i].address, infoHash: this.properties[i].infoHash, seq: this.properties[i].seq, own: this.properties[i].own, active: this.properties[i].active, magnet: this.properties[i].magnet}), error => {
+          if(error){
+            this.emit('error', error)
+            reject(false)
+          } else {
+            resolve(true)
+          }
         })
-      }
-    }, 180000)
+      })
+    }
+    // setTimeout(() => {if(this.readyAndNotBusy){this.keepItSaved().catch(error => {this.emit('error', error)})}}, 1800000)
   }
 
   async keepItUpdated(){
     this.readyAndNotBusy = false
-    this.emit('check', {message: 'there are ' + this.properties.length + ' properties being resolved, we rely on you, thank you', status: false})
+    this.emit('check', false)
     for(let i = 0;i < this.properties.length;i++){
       let res = await new Promise((resolve, reject) => {
         this.current(this.properties[i].address, (error, data) => {
           if(error){
+            this.emit('error', error)
             reject(null)
           } else {
             resolve(data)
           }
         })
       })
+      const tempInfoHash = this.properties[i].infoHash
+      const tempSeq = this.properties[i].seq
       if(res){
         if(Buffer.isBuffer(res.getData.v) && typeof(res.getData.seq) === 'number'){
-          let tempInfoHash = this.properties[i].infoHash
-          let tempSeq = this.properties[i].seq
           
           this.properties[i].infoHash = res.getData.v.toString('hex')
           this.properties[i].seq = res.getData.seq
-          this.properties[i].isActive = true
+          this.properties[i].active = true
           this.properties[i].getData = res.getData
           this.properties[i].putData = res.putData
-
-          if(tempInfoHash !== this.properties[i].infoHash || tempSeq !== this.properties[i].seq){
-            this.emit('update', {address: this.properties[i].address, old: {infoHash: tempInfoHash, seq: tempSeq}, new: this.properties[i], sameInfoHash: tempInfoHash === this.properties[i].infoHash, sameSeq: tempSeq === this.properties[i].seq})
-          }
+          // if(tempInfoHash !== tis.properties[i].infoHash || tempSeq !== this.properties[i].seq){
+          this.emit('update', {address: this.properties[i].address, infoHash: this.properties[i].infoHash, seq: this.properties[i].seq, old: {infoHash: tempInfoHash, seq: tempSeq}, new: this.properties[i], diffInfoHash: tempInfoHash !== this.properties[i].infoHash, diffSeq: tempSeq !== this.properties[i].seq})
+          // }
         } else {
-          this.emit('error', new Error('error with ' + this.properties[i].address + ', the property is not following corect structure, going inactive'))
-          this.properties[i].isActive = false
-
-          if(this.takeOutInActive){
-            this.emit('inactive', this.properties[i])
-          }
+          this.emit('inactive', this.properties[i].address + ' is not following the correct structure, going inactive')
+          this.properties[i].active = false
         }
-      } else if(this.properties[i].isActive){
+      } else if(this.properties[i].active){
         let shareCopy = await new Promise((resolve, reject) => {
           this.dht.put(this.properties[i].getData, (error, hash, number) => {
             if(error){
+              this.emit('error', error)
               reject(null)
             } else {
               resolve({hash: hash.toString('hex'), number})
@@ -168,54 +148,62 @@ class WebProperty extends EventEmitter {
           })
         })
         if(shareCopy){
-          this.properties[i].isActive = true
+          this.properties[i].active = true
           this.properties[i].putData = shareCopy
+          this.emit('update', {address: this.properties[i].address, infoHash: this.properties[i].infoHash, seq: this.properties[i].seq, old: {infoHash: tempInfoHash, seq: tempSeq}, new: this.properties[i], diffInfoHash: tempInfoHash !== this.properties[i].infoHash, diffSeq: tempSeq !== this.properties[i].seq})
         } else {
-          this.properties[i].isActive = false
-          if(this.takeOutInActive){
-            this.emit('inactive', this.properties[i])
-          }
+          this.emit('inactive', this.properties[i].address + ' is not following the correct structure, going inactive')
+          this.properties[i].active = false
         }
       }
       await new Promise(resolve => setTimeout(resolve, 3000))
     }
+    
     if(this.takeOutInActive){
-      this.properties = this.properties.filter(data => {return data.isActive})
-    }
-    if(this.checks.length){
-      this.properties = this.properties.filter(data => {return !this.checks.includes(data.address)})
-      this.checks = []
-    }
-    await new Promise((resolve, reject) => {
-      fs.writeFile('./data', JSON.stringify(this.properties.map(main => {return {address: main.address, infoHash: main.infoHash, seq: main.seq, isActive: main.isActive, own: main.own}})), error => {
-        if(error){
-          console.log(error)
-          reject(false)
-        } else {
-          resolve(true)
-        }
-      })
-    })
-    this.emit('check', {message: 'there are ' + this.properties.length + ' properties being resolved, we rely on you, thank you', status: true})
-    this.readyAndNotBusy = true
-    setTimeout(() => {
-      if(this.readyAndNotBusy){
-        this.keepItUpdated().catch(error => {
-          this.emit('error', error)
+      let tempProps = this.properties.filter(data => {return !data.active})
+      for(let i = 0;i < tempProps.length;i++){
+        await new Promise((resolve, reject) => {
+          this.database.del(tempProps[i].address, error => {
+            if(error){
+              this.emit('error', error)
+              reject(false)
+            } else {
+              resolve(true)
+            }
+          })
         })
+        await new Promise((resolve, reject) => {
+          fs.rm(this.folder + path.sep + tempProps[i].address, {force: true}, error => {
+            if(error){
+              this.emit('error', error)
+              reject(false)
+            } else {
+              resolve(true)
+            }
+          })
+        })
+        this.emit('dead', tempProps[i])
       }
-    }, 3600000)
+      this.properties = this.properties.filter(data => {return data.active})
+      tempProps = null
+    }
+    
+    // if(this.checks.length){
+    //   this.properties = this.properties.filter(data => {return !this.checks.includes(data.address)})
+    //   this.checks = []
+    // }
+
+    this.emit('check', true)
+    this.readyAndNotBusy = true
+    setTimeout(() => {if(this.readyAndNotBusy){this.keepItUpdated().catch(error => {this.emit('error', error)})}}, 3600000)
   }
 
-  // might need it later, if we have a 100 torrents, then it would mean 100 lookups one after another, would be good to delay it for a few seconds
-  // ddelayNow(milliSec){
-  //   return new Promise(resolve => setTimeout(resolve, milliSec))
-  // }
-
   getAll(which, kind){
-    try {
-      if(!which){
-        return this.properties.map(data => {return {address: data.address, infoHash: data.infoHash, seq: data.seq, isActive: data.isActive, own: data.own}})
+    if(!which){
+      return this.properties.map(data => {return {address: data.address, infoHash: data.infoHash, seq: data.seq, active: data.active, own: data.own, magnet: data.magnet}})
+    } else {
+      if(Array.isArray(which) || typeof(which) !== 'object'){
+        return null
       } else {
         if(kind){
           return this.properties.filter(main => {return main[which.info] === which.data})
@@ -223,8 +211,6 @@ class WebProperty extends EventEmitter {
           return this.properties.filter(main => {return main[which.info] !== which.data})
         }
       }
-    } catch (error) {
-      return error
     }
   }
 
@@ -233,43 +219,67 @@ class WebProperty extends EventEmitter {
   }
 
   getSpecific(which, kind){
-    try {
+    if((!which) || (!which.info || !which.data)){
+      return null
+    } else {
       let iter = null
       for(let i = 0;i < this.properties.length;i++){
         if(this.properties[i][which.info] === which.data){
           iter = kind ? this.properties[i] : i
           break
-          // return this.properties[i]
         }
       }
       return iter
-    } catch (error) {
-      return error
     }
   }
 
-  garbage(address){
-    if(typeof(address) !== 'string' || this.checks.includes(address)){
-      return false
-    } else {
-      this.checks.push(address)
-      return true
-    }
-  }
+  // garbage(address){
+  //   if(typeof(address) !== 'string' || this.checks.includes(address)){
+  //     return false
+  //   } else {
+  //     this.checks.push(address)
+  //     return true
+  //   }
+  // }
 
   shred(address, callback){
     if(!callback){
       callback = function(){}
     }
-    let lookAtProperty = this.search(address)
-
-    if(lookAtProperty){
-      this.properties.splice(lookAtProperty.index, 1)
-      return callback(null, lookAtProperty)
+    let found = false
+    let iter = null
+    let prop = null
+    for(let i = 0;i < this.properties.length;i++){
+      if(this.properties[i].address === address){
+        found = true
+        iter = i
+        prop = this.properties[i]
+        break
+      }
+    }
+    if(found){
+      this.database.del(address, error => {
+        if(error){
+          return callback(error)
+        } else {
+          this.properties.splice(iter, 1)
+          return callback(null, prop)
+        }
+      })
     } else {
       return callback(new Error('can not find property'))
     }
+  }
 
+  grab(address){
+    let iter = null
+    for(let i = 0;i < this.properties.length;i++){
+      if(this.properties[i].address === address){
+        iter = this.properties[i]
+        break
+      }
+    }
+    return iter
   }
 
   search(address){
@@ -278,34 +288,10 @@ class WebProperty extends EventEmitter {
       if(this.properties[i].address === address){
         iter = {data: this.properties[i], index: i}
         break
-        // return this.properties[i]
       }
     }
     return iter
   }
-
-  // updateProperty(address, callback){
-  //   if(!callback){
-  //     callback = noop
-  //   }
-
-  //   let lookAtProperty = this.search(address, true)
-
-  //   if(lookAtProperty){
-  //     this.resolve(address, false, (error, data) => {
-  //       if(error){
-  //         return callback(error)
-  //       } else {
-  //         lookAtProperty.infoHash = data.infoHash
-  //         lookAtProperty.seq = data.seq
-  //         return callback(null, lookAtProperty)
-  //       }
-  //     })
-  //   } else {
-  //     return callback(new Error('address key is not managed'))
-  //   }
-
-  // }
 
   resolve (address, manage, callback) {
     if(!callback){
@@ -318,16 +304,10 @@ class WebProperty extends EventEmitter {
     }
     const addressKey = Buffer.from(address, 'hex')
 
-    let propertyData = null
-    if(manage){
-      propertyData = this.search(address)
-      if(propertyData){
-        propertyData = propertyData.data
-      }
-      // if(propertyData){
-      //   return callback(new Error('address key is already managed'))
-      // }
-    }
+    let propertyData = manage ? this.grab(address) : null
+    // if(manage){
+    //   propertyData = this.grab(address)
+    // }
 
     sha1(addressKey, (targetID) => {
       this.dht.get(targetID, (err, res) => {
@@ -337,22 +317,37 @@ class WebProperty extends EventEmitter {
 
           if(!Buffer.isBuffer(res.v) || typeof(res.seq) !== 'number'){
             return callback(new Error('data has invalid values'))
-          }
-          
-          const infoHash = res.v.toString('hex')
-          const seq = res.seq
+          } else {
 
-          if(manage){
-            if(propertyData){
-              propertyData.infoHash = infoHash
-              propertyData.seq = seq
-              propertyData.isActive = true
+            const infoHash = res.v.toString('hex')
+            const seq = res.seq
+            const own = false
+            const active = true
+            const magnet = `magnet:?xs=${BTPK_PREFIX}${address}`
+  
+            if(manage){
+              this.database.put(address, JSON.stringify({address, infoHash, seq, own, magnet, active}), error => {
+                if(error){
+                  return callback(error)
+                } else {
+                  if(propertyData){
+                    propertyData.infoHash = infoHash
+                    propertyData.seq = seq
+                    propertyData.own = own
+                    propertyData.active = active
+                    propertyData.magnet = magnet
+                  } else {
+                    this.properties.push({ address, infoHash, seq, own, magnet, active, getData: res })
+                  }
+                  return callback(null, { address, infoHash, seq, own, magnet, active })
+                }
+              })
             } else {
-              this.properties.push({ address, infoHash, seq, own: false, isActive: true, getData: res })
+              return callback(null, { address, infoHash, seq, own, magnet, active })
             }
+
           }
-          
-          return callback(null, { address, infoHash, seq, own: false })
+
         } else if(!res){
           if(manage && propertyData){
             return callback(null, propertyData)
@@ -393,25 +388,35 @@ class WebProperty extends EventEmitter {
     const buffAddKey = Buffer.from(keypair.address, 'hex')
     const buffSecKey = Buffer.from(keypair.secret, 'hex')
     const getData = {k: buffAddKey, v: Buffer.from(infoHash, 'hex'), seq, sign: (buf) => {return sign(buf, buffAddKey, buffSecKey)}}
+    const own = true
+    const active = true
+    const magnet = `magnet:?xs=${BTPK_PREFIX}${keypair.address}`
 
     this.dht.put(getData, (putErr, hash, number) => {
       if(putErr){
         return callback(putErr)
-      }
-
-      const magnetURI = `magnet:?xs=${BTPK_PREFIX}${keypair.address}`
-
-      if(manage){
-        if(propertyData){
-          propertyData.infoHash = infoHash
-          propertyData.seq = seq
-          propertyData.isActive = true
+      } else {
+        if(manage){
+          this.database.put(keypair.address, JSON.stringify({address: keypair.address, infoHash, seq, own, active, magnet}), error => {
+            if(error){
+              return callback(error)
+            } else {
+              if(propertyData){
+                propertyData.infoHash = infoHash
+                propertyData.seq = seq
+                propertyData.own = own
+                propertyData.active = active
+                propertyData.magnet = magnet
+              } else {
+                this.properties.push({address: keypair.address, infoHash, seq, own, active, magnet, putData: {hash, number}, getData})
+              }
+              return callback(null, {magnet, infoHash, seq, address: keypair.address, magnet, secret: keypair.secret, own, hash: hash.toString('hex'), number})
+            }
+          })
         } else {
-          this.properties.push({address: keypair.address, infoHash, seq, own: true, isActive: true, putData: {hash, number}, getData})
+          return callback(null, {magnet, infoHash, seq, address: keypair.address, secret: keypair.secret, own, hash: hash.toString('hex'), number})
         }
       }
-
-      callback(null, {magnetURI, infoHash, seq, address: keypair.address, secret: keypair.secret, own: true, hash: hash.toString('hex'), number})
     })
   }
 
@@ -427,15 +432,17 @@ class WebProperty extends EventEmitter {
       this.dht.get(targetID, (getErr, getData) => {
         if (getErr) {
           return callback(getErr)
+        } else if(getData){
+          this.dht.put(getData, (putErr, hash, number) => {
+            if(putErr){
+              return callback(putErr)
+            } else {
+              return callback(null, {getData, putData: {hash: hash.toString('hex'), number}})
+            }
+          })
+        } else if(!getData){
+          return callback(new Error('could not find property'))
         }
-
-        this.dht.put(getData, (putErr, hash, number) => {
-          if(putErr){
-            return callback(putErr)
-          } else {
-            return callback(null, {getData, putData: {hash: hash.toString('hex'), number}})
-          }
-        })
       })
     })
   }
