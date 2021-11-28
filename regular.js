@@ -39,10 +39,10 @@ class WebProperty extends EventEmitter {
     }
     this.dht = opt.dht
     this.database = level('database')
-    if(!fs.existsSync('./folder')){
-      fs.mkdirSync('./folder', {recursive: true})
+    if(!fs.existsSync('./magnet')){
+      fs.mkdirSync('./magnet', {recursive: true})
     }
-    this.folder = path.resolve('./folder')
+    this.folder = path.resolve('./magnet')
     this.takeOutInActive = opt.takeOutInActive
     this.readyAndNotBusy = true
     this.properties = []
