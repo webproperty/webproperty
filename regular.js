@@ -187,6 +187,8 @@ class WebProperty extends EventEmitter {
       this.properties = this.properties.filter(data => {return data.active})
       tempProps = null
     }
+
+    await this.keepItSaved()
     
     // if(this.checks.length){
     //   this.properties = this.properties.filter(data => {return !this.checks.includes(data.address)})
