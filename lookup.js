@@ -1,10 +1,10 @@
 const DHT = require('bittorrent-dht')
 const sodium = require('sodium-universal')
 const sha1 = require('simple-sha1')
-const fs = require('fs')
+// const fs = require('fs')
 
 const BTPK_PREFIX = 'urn:btpk:'
-const BITH_PREFIX = 'urn:btih:'
+// const BITH_PREFIX = 'urn:btih:'
 
 function verify (signature, message, address) {
   return sodium.crypto_sign_verify_detached(signature, message, address)
@@ -18,11 +18,12 @@ function sign (message, address, secret) {
 
 class WebProperty {
   constructor (dht) {
-    if(!dht || typeof(dht) !== 'object' || Array.isArray(dht)){
-      this.dht = new DHT({verify})
-    } else {
-      this.dht = dht
+    if(!dht){
+      dht = new DHT({verify})
+    } else if(Array.isArray(dht) || typeof(dht) !== 'object'){
+      dht = new DHT({verify})
     }
+    this.dht = dht
   }
 
   resolve (address, callback) {
@@ -44,12 +45,11 @@ class WebProperty {
 
           if(!Buffer.isBuffer(res.v) || typeof(res.seq) !== 'number'){
             return callback(new Error('data has invalid values'))
+          } else {
+            const infoHash = res.v.toString('hex')
+            const seq = res.seq
+            return callback(null, { address, infoHash, seq })
           }
-          
-          const infoHash = res.v.toString('hex')
-          const seq = res.seq
-          
-          return callback(null, { address, infoHash, seq })
         } else if(!res){
           return callback(new Error('Could not resolve address'))
         }
@@ -75,15 +75,14 @@ class WebProperty {
     const buffAddKey = Buffer.from(keypair.address, 'hex')
     const buffSecKey = Buffer.from(keypair.secret, 'hex')
     const getData = {k: buffAddKey, v: Buffer.from(infoHash, 'hex'), seq, sign: (buf) => {return sign(buf, buffAddKey, buffSecKey)}}
+    const magnet = `magnet:?xs=${BTPK_PREFIX}${keypair.address}`
 
     this.dht.put(getData, (putErr, hash, number) => {
       if(putErr){
         return callback(putErr)
+      } else {
+        return callback(null, {magnet, infoHash, seq, address: keypair.address, secret: keypair.secret, hash: hash.toString('hex'), number})
       }
-
-      const magnetURI = `magnet:?xs=${BTPK_PREFIX}${keypair.address}`
-
-      callback(null, {magnetURI, infoHash, seq, address: keypair.address, secret: keypair.secret, hash: hash.toString('hex'), number})
     })
   }
 
@@ -99,15 +98,17 @@ class WebProperty {
       this.dht.get(targetID, (getErr, getData) => {
         if (getErr) {
           return callback(getErr)
+        } else if(getData){
+          this.dht.put(getData, (putErr, hash, number) => {
+            if(putErr){
+              return callback(putErr)
+            } else {
+              return callback(null, {getData, putData: {hash: hash.toString('hex'), number}})
+            }
+          })
+        } else if(!getData){
+          return callback(new Error('did not find property'))
         }
-
-        this.dht.put(getData, (putErr, hash, number) => {
-          if(putErr){
-            return callback(putErr)
-          } else {
-            return callback(null, {getData, putData: {hash: hash.toString('hex'), number}})
-          }
-        })
       })
     })
   }
@@ -164,6 +165,6 @@ class WebProperty {
   }
 }
 
-module.exports = WebProperty
+module.exports = {WebProperty, verify}
 
 function noop () {}

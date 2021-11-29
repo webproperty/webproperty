@@ -159,7 +159,7 @@ class WebProperty extends EventEmitter {
           this.properties[i].getData = res.getData
           this.properties[i].putData = res.putData
           // if(tempInfoHash !== tis.properties[i].infoHash || tempSeq !== this.properties[i].seq){
-          this.emit('update', {address: this.properties[i].address, infoHash: this.properties[i].infoHash, seq: this.properties[i].seq, old: {infoHash: tempInfoHash, seq: tempSeq}, new: this.properties[i], diffInfoHash: tempInfoHash !== this.properties[i].infoHash, diffSeq: tempSeq !== this.properties[i].seq})
+          this.emit('update', {address: this.properties[i].address, current: {infoHash: this.properties[i].infoHash, seq: this.properties[i].seq}, previous: {infoHash: tempInfoHash, seq: tempSeq}, property: this.properties[i], diffInfoHash: tempInfoHash !== this.properties[i].infoHash, diffSeq: tempSeq !== this.properties[i].seq})
           // }
         } else {
           this.emit('inactive', this.properties[i].address + ' is not following the correct structure, going inactive')
@@ -179,7 +179,7 @@ class WebProperty extends EventEmitter {
         if(shareCopy){
           this.properties[i].active = true
           this.properties[i].putData = shareCopy
-          this.emit('update', {address: this.properties[i].address, infoHash: this.properties[i].infoHash, seq: this.properties[i].seq, old: {infoHash: tempInfoHash, seq: tempSeq}, new: this.properties[i], diffInfoHash: tempInfoHash !== this.properties[i].infoHash, diffSeq: tempSeq !== this.properties[i].seq})
+          this.emit('update', {address: this.properties[i].address, current: {infoHash: this.properties[i].infoHash, seq: this.properties[i].seq}, previous: {infoHash: tempInfoHash, seq: tempSeq}, property: this.properties[i], diffInfoHash: tempInfoHash !== this.properties[i].infoHash, diffSeq: tempSeq !== this.properties[i].seq})
         } else {
           this.emit('inactive', this.properties[i].address + ' is not following the correct structure, going inactive')
           this.properties[i].active = false
