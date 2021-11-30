@@ -60,7 +60,22 @@ class WebProperty extends EventEmitter {
     await this.keepItUpdated()
   }
 
-  async keepItActive(){
+  async keepSigned(){
+    let tempProps = this.properties.filter(data => {return data.signed})
+    for(let i = 0;i < tempProps.length;i++){
+      await new Promise((resolve, reject) => {
+        this.current(tempProps[i].address, (error, data => {
+          if(error){
+            reject(error)
+          } else {
+            resolve(data)
+          }
+        }))
+      })
+    }
+  }
+
+  async purgeInActive(){
     let tempProps = this.properties.filter(data => {return !data.active})
     for(let i = 0;i < tempProps.length;i++){
       await new Promise((resolve, reject) => {
@@ -189,7 +204,7 @@ class WebProperty extends EventEmitter {
     }
 
     if(this.takeOutInActive){
-      await this.keepItActive()
+      await this.purgeInActive()
     }
 
     await this.keepItSaved()
@@ -328,7 +343,8 @@ class WebProperty extends EventEmitter {
             const seq = res.seq
             const active = true
             const magnet = `magnet:?xs=${BTPK_PREFIX}${address}`
-            this.database.put(address, JSON.stringify({address, infoHash, seq, magnet, active}), error => {
+            const signed = false
+            this.database.put(address, JSON.stringify({magnet, address, infoHash, seq, active, signed}), error => {
               if(error){
                 return callback(error)
               } else {
@@ -337,10 +353,12 @@ class WebProperty extends EventEmitter {
                   propertyData.seq = seq
                   propertyData.active = active
                   propertyData.magnet = magnet
+                  propertyData.signed = signed
+                  propertyData.getData = res
                 } else {
-                  this.properties.push({ address, infoHash, seq, magnet, active, getData: res })
+                  this.properties.push({ magnet, address, infoHash, seq, active, signed, getData: res })
                 }
-                return callback(null, { address, infoHash, seq, magnet, active })
+                return callback(null, { magnet, address, infoHash, seq, active, signed })
               }
             })
           }
@@ -386,12 +404,13 @@ class WebProperty extends EventEmitter {
     const getData = {k: buffAddKey, v: Buffer.from(infoHash, 'hex'), seq, sign: (buf) => {return sign(buf, buffAddKey, buffSecKey)}}
     const active = true
     const magnet = `magnet:?xs=${BTPK_PREFIX}${keypair.address}`
+    const signed = true
 
     this.dht.put(getData, (putErr, hash, number) => {
       if(putErr){
         return callback(putErr)
       } else {
-        this.database.put(keypair.address, JSON.stringify({address: keypair.address, infoHash, seq, active, magnet}), error => {
+        this.database.put(keypair.address, JSON.stringify({magnet, address: keypair.address, infoHash, seq, active, signed}), error => {
           if(error){
             return callback(error)
           } else {
@@ -400,10 +419,13 @@ class WebProperty extends EventEmitter {
               propertyData.seq = seq
               propertyData.active = active
               propertyData.magnet = magnet
+              propertyData.signed = signed
+              propertyData.getData = getData
+              propertyData.putData = {hash, number}
             } else {
-              this.properties.push({address: keypair.address, infoHash, seq, active, magnet, putData: {hash, number}, getData})
+              this.properties.push({magnet, address: keypair.address, infoHash, seq, active, signed, putData: {hash, number}, getData})
             }
-            return callback(null, {magnet, infoHash, seq, address: keypair.address, magnet, secret: keypair.secret, hash: hash.toString('hex'), number})
+            return callback(null, {magnet, address: keypair.address, infoHash, seq, active, signed, secret: keypair.secret})
           }
         })
       }

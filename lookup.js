@@ -1,7 +1,6 @@
 const DHT = require('bittorrent-dht')
 const sodium = require('sodium-universal')
 const sha1 = require('simple-sha1')
-// const fs = require('fs')
 
 const BTPK_PREFIX = 'urn:btpk:'
 // const BITH_PREFIX = 'urn:btih:'
@@ -36,6 +35,9 @@ class WebProperty {
       return callback(new Error('address can not be parsed'))
     }
     const addressKey = Buffer.from(address, 'hex')
+    const magnet = `magnet:?xs=${BTPK_PREFIX}${address}`
+    const active = true
+    const signed = false
 
     sha1(addressKey, (targetID) => {
       this.dht.get(targetID, (err, res) => {
@@ -48,7 +50,7 @@ class WebProperty {
           } else {
             const infoHash = res.v.toString('hex')
             const seq = res.seq
-            return callback(null, { address, infoHash, seq })
+            return callback(null, { magnet, address, infoHash, seq, active, signed })
           }
         } else if(!res){
           return callback(new Error('Could not resolve address'))
@@ -76,12 +78,14 @@ class WebProperty {
     const buffSecKey = Buffer.from(keypair.secret, 'hex')
     const getData = {k: buffAddKey, v: Buffer.from(infoHash, 'hex'), seq, sign: (buf) => {return sign(buf, buffAddKey, buffSecKey)}}
     const magnet = `magnet:?xs=${BTPK_PREFIX}${keypair.address}`
+    const active = true
+    const signed = true
 
     this.dht.put(getData, (putErr, hash, number) => {
       if(putErr){
         return callback(putErr)
       } else {
-        return callback(null, {magnet, infoHash, seq, address: keypair.address, secret: keypair.secret, hash: hash.toString('hex'), number})
+        return callback(null, {magnet, address: keypair.address, infoHash, seq, active, signed, secret: keypair.secret, hash, number})
       }
     })
   }
