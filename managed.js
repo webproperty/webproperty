@@ -57,22 +57,34 @@ class WebProperty extends EventEmitter {
     for await (const [key, value] of this.database.iterator()){
       this.properties.push(JSON.parse(value))
     }
+    await this.keepSigned()
     await this.keepItUpdated()
   }
 
   async keepSigned(){
     let tempProps = this.properties.filter(data => {return data.signed})
     for(let i = 0;i < tempProps.length;i++){
-      await new Promise((resolve, reject) => {
-        this.current(tempProps[i].address, (error, data => {
+      let tempData = await new Promise((resolve, reject) => {
+        // this.current(tempProps[i].address, (error, data => {
+        //   if(error){
+        //     reject(error)
+        //   } else {
+        //     resolve(data)
+        //   }
+        // }))
+        this.dht.put(tempProps[i].getData, (error, hash, number) => {
           if(error){
-            reject(error)
+            reject(null)
           } else {
-            resolve(data)
+            resolve({hash: hash.toString('hex'), number})
           }
-        }))
+        })
       })
+      if(tempData){
+        tempProps[i].putData = tempData
+      }
     }
+    setTimeout(() => {if(this.readyAndNotBusy){this.keepSigned().catch(error => {this.emit('error', error)})}}, 1800000)
   }
 
   async purgeInActive(){

@@ -1,6 +1,7 @@
 const DHT = require('bittorrent-dht')
 const sodium = require('sodium-universal')
 const sha1 = require('simple-sha1')
+const EventEmitter = require('events').EventEmitter
 
 const BTPK_PREFIX = 'urn:btpk:'
 // const BITH_PREFIX = 'urn:btih:'
@@ -15,8 +16,9 @@ function sign (message, address, secret) {
   return signature
 }
 
-class WebProperty {
+class WebProperty extends EventEmitter {
   constructor (dht) {
+    super()
     if(!dht){
       dht = new DHT({verify})
     } else if(Array.isArray(dht) || typeof(dht) !== 'object'){
@@ -142,7 +144,7 @@ class WebProperty {
         }
 
       } catch (error) {
-        console.log(error)
+        this.emit('error', error)
         return ''
       }
     } else if(link.startsWith('magnet')){
@@ -160,7 +162,7 @@ class WebProperty {
         }
 
       } catch (error) {
-        console.log(error)
+        this.emit('error', error)
         return ''
       }
     } else {
