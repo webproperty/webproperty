@@ -25,6 +25,26 @@ class WebProperty extends EventEmitter {
       dht = new DHT({verify})
     }
     this.dht = dht
+    this.properties = []
+    this.readyAndNotBusy = true
+    this.keepData().catch(error => {this.emit('error', error)})
+  }
+
+  async keepData(){
+    this.readyAndNotBusy = false
+    for(let i = 0;i < this.properties.length;i++){
+      await new Promise((resolve, reject) => {
+        this.current(this.properties[i], (error, data) => {
+          if(error){
+            reject(error)
+          } else {
+            resolve(data)
+          }
+        })
+      })
+    }
+    this.readyAndNotBusy = true
+    setTimeout(() => {if(this.readyAndNotBusy){this.keepData().catch(error => {this.emit('error', error)})}}, 1800000)
   }
 
   resolve (address, callback) {
@@ -52,6 +72,9 @@ class WebProperty extends EventEmitter {
           } else {
             const infoHash = res.v.toString('hex')
             const seq = res.seq
+            if(!this.properties.includes(address)){
+              this.properties.push(address)
+            }
             return callback(null, { magnet, address, infoHash, seq, active, signed })
           }
         } else if(!res){
