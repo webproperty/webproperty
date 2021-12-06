@@ -1,50 +1,61 @@
 const DHT = require('bittorrent-dht')
-const sodium = require('sodium-universal')
+const ed = require('ed25519-supercop')
 const sha1 = require('simple-sha1')
+const bencode = require('bencode')
 const EventEmitter = require('events').EventEmitter
 
 const BTPK_PREFIX = 'urn:btpk:'
 // const BITH_PREFIX = 'urn:btih:'
-
-function verify (signature, message, address) {
-  return sodium.crypto_sign_verify_detached(signature, message, address)
+const checkHash = new RegExp('^[a-fA-F0-9]{40}$')
+function encodeSigData (msg) {
+  const ref = { seq: msg.seq, v: msg.v }
+  if (msg.salt) ref.salt = msg.salt
+  return bencode.encode(ref).slice(1, -1)
 }
 
-function sign (message, address, secret) {
-  const signature = Buffer.alloc(sodium.crypto_sign_BYTES)
-  sodium.crypto_sign_detached(signature, message, secret)
-  return signature
+let dht = null
+let readyAndNotBusy = null
+let check = null
+
+async function keepData(self){
+  readyAndNotBusy = false
+  for(let i = 0;i < self.properties.length;i++){
+    await new Promise((resolve, reject) => {
+      self.current(self.properties[i], (error, data) => {
+        if(error){
+          reject(error)
+        } else {
+          resolve(data)
+        }
+      })
+    })
+  }
+  readyAndNotBusy = true
+  setTimeout(() => {if(readyAndNotBusy){keepData(self).catch(error => {self.emit('error', error)})}}, 1800000)
 }
 
 class WebProperty extends EventEmitter {
-  constructor (dht) {
+  constructor (opt) {
     super()
-    if(!dht){
-      dht = new DHT({verify})
-    } else if(Array.isArray(dht) || typeof(dht) !== 'object'){
-      dht = new DHT({verify})
+    if(!opt){
+      opt = {}
+      opt.dht = dht = new DHT({verify: ed.verify})
+      opt.check = false
+    } else {
+      if(!opt.dht){
+        opt.dht = new DHT({verify: ed.verify})
+      }
+      if(!opt.check){
+        opt.check = false
+      }
     }
-    this.dht = dht
-    this.properties = []
-    this.readyAndNotBusy = true
-    this.keepData().catch(error => {this.emit('error', error)})
-  }
-
-  async keepData(){
-    this.readyAndNotBusy = false
-    for(let i = 0;i < this.properties.length;i++){
-      await new Promise((resolve, reject) => {
-        this.current(this.properties[i], (error, data) => {
-          if(error){
-            reject(error)
-          } else {
-            resolve(data)
-          }
-        })
-      })
+    dht = opt.dht
+    check = opt.check
+    readyAndNotBusy = true
+    if(check){
+      this.properties = []
+      keepData(this).catch(error => {this.emit('error', error)})
     }
-    this.readyAndNotBusy = true
-    setTimeout(() => {if(this.readyAndNotBusy){this.keepData().catch(error => {this.emit('error', error)})}}, 1800000)
   }
 
   resolve (address, callback) {
@@ -57,25 +68,23 @@ class WebProperty extends EventEmitter {
       return callback(new Error('address can not be parsed'))
     }
     const addressKey = Buffer.from(address, 'hex')
-    const magnet = `magnet:?xs=${BTPK_PREFIX}${address}`
-    const active = true
-    const signed = false
 
     sha1(addressKey, (targetID) => {
-      this.dht.get(targetID, (err, res) => {
+      dht.get(targetID, (err, res) => {
         if(err){
           return callback(err)
         } else if(res){
 
-          if(!Buffer.isBuffer(res.v) || typeof(res.seq) !== 'number'){
+          if(!Buffer.isBuffer(res.v) || !checkHash.test(res.v.toString('utf-8')) || typeof(res.seq) !== 'number'){
             return callback(new Error('data has invalid values'))
           } else {
-            const infoHash = res.v.toString('hex')
-            const seq = res.seq
-            if(!this.properties.includes(address)){
-              this.properties.push(address)
+            const main = {magnet: `magnet:?xs=${BTPK_PREFIX}${address}`, address, infoHash: res.v.toString('hex'), sequence: res.seq, active: true, signed: false, sig: res.sig.toString('hex')}
+            if(check){
+              if(!this.properties.includes(main.address)){
+                this.properties.push(main.address)
+              }
             }
-            return callback(null, { magnet, address, infoHash, seq, active, signed })
+            return callback(null, {...main, id: res.id.toString('hex')})
           }
         } else if(!res){
           return callback(new Error('Could not resolve address'))
@@ -84,7 +93,7 @@ class WebProperty extends EventEmitter {
     })
   }
 
-  publish (keypair, infoHash, seq, callback) {
+  publish (keypair, infoHash, sequence, callback) {
 
     if (!callback) {
       callback = () => noop
@@ -92,8 +101,8 @@ class WebProperty extends EventEmitter {
     if(!infoHash || typeof(infoHash) !== 'string'){
       return callback(new Error('must have infoHash'))
     }
-    if(!seq || typeof(seq) !== 'number'){
-      seq = 0
+    if(!sequence || typeof(sequence) !== 'number'){
+      sequence = 0
     }
     if((!keypair) || (!keypair.address || !keypair.secret)){
       keypair = this.createKeypair(false)
@@ -101,16 +110,21 @@ class WebProperty extends EventEmitter {
 
     const buffAddKey = Buffer.from(keypair.address, 'hex')
     const buffSecKey = Buffer.from(keypair.secret, 'hex')
-    const getData = {k: buffAddKey, v: Buffer.from(infoHash, 'hex'), seq, sign: (buf) => {return sign(buf, buffAddKey, buffSecKey)}}
-    const magnet = `magnet:?xs=${BTPK_PREFIX}${keypair.address}`
-    const active = true
-    const signed = true
+    const v = infoHash
+    const seq = sequence
+    const sig = ed.sign(encodeSigData({seq, v}), buffAddKey, buffSecKey)
 
-    this.dht.put(getData, (putErr, hash, number) => {
+    dht.put({k: buffAddKey, v, seq, sig}, (putErr, hash, number) => {
       if(putErr){
         return callback(putErr)
       } else {
-        return callback(null, {magnet, address: keypair.address, infoHash, seq, active, signed, secret: keypair.secret, hash, number})
+        const main = {magnet: `magnet:?xs=${BTPK_PREFIX}${keypair.address}`, address: keypair.address, infoHash, sequence, active: true, signed: true, sig: sig.toString('hex')}
+        if(check){
+          if(!this.properties.includes(main.address)){
+            this.properties.push(main.address)
+          }
+        }
+        return callback(null, {...main, hash, number})
       }
     })
   }
@@ -124,11 +138,11 @@ class WebProperty extends EventEmitter {
 
     sha1(buffAddKey, (targetID) => {
 
-      this.dht.get(targetID, (getErr, getData) => {
+      dht.get(targetID, (getErr, getData) => {
         if (getErr) {
           return callback(getErr)
         } else if(getData){
-          this.dht.put(getData, (putErr, hash, number) => {
+          dht.put(getData, (putErr, hash, number) => {
             if(putErr){
               return callback(putErr)
             } else {
@@ -194,6 +208,6 @@ class WebProperty extends EventEmitter {
   }
 }
 
-module.exports = {WebProperty, verify}
+module.exports = {WebProperty, verify: ed.verify}
 
 function noop () {}
