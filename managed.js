@@ -324,7 +324,7 @@ class WebProperty extends EventEmitter {
     takeOutInActive = opt.takeOutInActive
     readyAndNotBusy = true
     database = level('database')
-    folder = opt.folder
+    folder = path.resolve(opt.folder)
     if(!fs.existsSync('./magnet')){
       fs.mkdirSync('./magnet', {recursive: true})
     }

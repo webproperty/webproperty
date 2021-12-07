@@ -307,7 +307,7 @@ class WebProperty extends EventEmitter {
     this.properties = []
     dht = opt.dht
     database = level('database')
-    folder = opt.folder
+    folder = path.resolve(opt.folder)
     takeOutInActive = opt.takeOutInActive
     readyAndNotBusy = true
     check = opt.check
