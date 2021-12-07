@@ -33,7 +33,7 @@ async function startUp(self){
     }
   }
   contents = null
-  // await this.keepSigned()
+  // await keepSigned()
   await keepItUpdated(self)
 }
 
@@ -118,14 +118,14 @@ async function keepItSaved(self){
       })
     })
   }
-  // setTimeout(() => {if(this.readyAndNotBusy){this.keepItSaved().catch(error => {this.emit('error', error)})}}, 1800000)
+  // setTimeout(() => {if(readyAndNotBusy){keepItSaved(self).catch(error => {self.emit('error', error)})}}, 1800000)
 }
 
 async function keepSigned(self){
   let tempProps = self.properties.filter(data => {return data.signed})
   for(let i = 0;i < tempProps.length;i++){
       let tempData = await new Promise((resolve, reject) => {
-      // this.current(tempProps[i].address, (error, data => {
+      // self.current(tempProps[i].address, (error, data => {
       //   if(error){
       //     reject(error)
       //   } else {
@@ -153,8 +153,8 @@ async function keepItUpdated(self){
   readyAndNotBusy = false
   self.emit('check', false)
   for(let i = 0;i < self.properties.length;i++){
-    const tempInfoHash = this.properties[i].infoHash
-    const tempSequence = this.properties[i].sequence
+    const tempInfoHash = self.properties[i].infoHash
+    const tempSequence = self.properties[i].sequence
     if(self.properties[i].active){
       let res = await new Promise((resolve, reject) => {
         self.bothGetPut(self.properties[i].address, (error, get, put) => {
@@ -199,13 +199,13 @@ async function keepItUpdated(self){
         }
       }
       if(self.properties[i].active){
-        if(tempInfoHash !== this.properties[i].infoHash || tempSequence !== this.properties[i].sequence){
-          self.emit('update', {...self.properties[i], prevInfoHash: tempInfoHash, prevSequence: tempSequence, diffHash: tempInfoHash !== this.properties[i].infoHash, diffSeq: tempSequence !== this.properties[i].sequence})
+        if(tempInfoHash !== self.properties[i].infoHash || tempSequence !== self.properties[i].sequence){
+          self.emit('update', {...self.properties[i], prevInfoHash: tempInfoHash, prevSequence: tempSequence, diffHash: tempInfoHash !== self.properties[i].infoHash, diffSeq: tempSequence !== self.properties[i].sequence})
         } else {
-          self.emit('current', {...self.properties[i], prevInfoHash: tempInfoHash, prevSequence: tempSequence, diffHash: tempInfoHash !== this.properties[i].infoHash, diffSeq: tempSequence !== this.properties[i].sequence})
+          self.emit('current', {...self.properties[i], prevInfoHash: tempInfoHash, prevSequence: tempSequence, diffHash: tempInfoHash !== self.properties[i].infoHash, diffSeq: tempSequence !== self.properties[i].sequence})
         }
       } else if(!self.properties[i].active){
-        self.emit('deactivate', {...self.properties[i], prevInfoHash: tempInfoHash, prevSequence: tempSequence, diffHash: tempInfoHash !== this.properties[i].infoHash, diffSeq: tempSequence !== this.properties[i].sequence})
+        self.emit('deactivate', {...self.properties[i], prevInfoHash: tempInfoHash, prevSequence: tempSequence, diffHash: tempInfoHash !== self.properties[i].infoHash, diffSeq: tempSequence !== self.properties[i].sequence})
       }
     } else if(check){
       let getRes = await new Promise((resolve, reject) => {
@@ -251,16 +251,16 @@ async function keepItUpdated(self){
         }
       }
       if(self.properties[i].active){
-        if(tempInfoHash !== this.properties[i].infoHash || tempSequence !== this.properties[i].sequence){
-          self.emit('update', {...self.properties[i], prevInfoHash: tempInfoHash, prevSequence: tempSequence, diffHash: tempInfoHash !== this.properties[i].infoHash, diffSeq: tempSequence !== this.properties[i].sequence})
+        if(tempInfoHash !== self.properties[i].infoHash || tempSequence !== self.properties[i].sequence){
+          self.emit('update', {...self.properties[i], prevInfoHash: tempInfoHash, prevSequence: tempSequence, diffHash: tempInfoHash !== self.properties[i].infoHash, diffSeq: tempSequence !== self.properties[i].sequence})
         } else {
-          self.emit('current', {...self.properties[i], prevInfoHash: tempInfoHash, prevSequence: tempSequence, diffHash: tempInfoHash !== this.properties[i].infoHash, diffSeq: tempSequence !== this.properties[i].sequence})
+          self.emit('current', {...self.properties[i], prevInfoHash: tempInfoHash, prevSequence: tempSequence, diffHash: tempInfoHash !== self.properties[i].infoHash, diffSeq: tempSequence !== self.properties[i].sequence})
         }
       } else if(!self.properties[i].active){
-        self.emit('inactive', {...self.properties[i], prevInfoHash: tempInfoHash, prevSequence: tempSequence, diffHash: tempInfoHash !== this.properties[i].infoHash, diffSeq: tempSequence !== this.properties[i].sequence})
+        self.emit('inactive', {...self.properties[i], prevInfoHash: tempInfoHash, prevSequence: tempSequence, diffHash: tempInfoHash !== self.properties[i].infoHash, diffSeq: tempSequence !== self.properties[i].sequence})
       }
-    } else if(!this.properties[i].active){
-      self.emit('inactive', {...self.properties[i], prevInfoHash: tempInfoHash, prevSequence: tempSequence, diffHash: tempInfoHash !== this.properties[i].infoHash, diffSeq: tempSequence !== this.properties[i].sequence})
+    } else if(!self.properties[i].active){
+      self.emit('inactive', {...self.properties[i], prevInfoHash: tempInfoHash, prevSequence: tempSequence, diffHash: tempInfoHash !== self.properties[i].infoHash, diffSeq: tempSequence !== self.properties[i].sequence})
     }
     await new Promise(resolve => setTimeout(resolve, 3000))
   }
