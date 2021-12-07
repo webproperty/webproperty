@@ -17,9 +17,14 @@ function encodeSigData (msg) {
 }
 
 async function startUp(self){
+  let contents = self.properties.map(data => {return data.address})
   for await (const [key, value] of database.iterator()){
-    self.properties.push(JSON.parse(value))
+    let property = JSON.parse(value)
+    if(!contents.includes(property.address)){
+      self.properties.push(property)
+    }
   }
+  contents = null
   // await keepSigned(self)
   await keepItUpdated(self)
 }
@@ -138,6 +143,8 @@ async function keepItUpdated(self){
   readyAndNotBusy = false
   self.emit('check', false)
   for(let i = 0;i < self.properties.length;i++){
+    const tempInfoHash = this.properties[i].infoHash
+    const tempSequence = this.properties[i].sequence
     if(self.properties[i].active){
       let res = await new Promise((resolve, reject) => {
         self.bothGetPut(self.properties[i].address, (error, get, put) => {
@@ -151,13 +158,13 @@ async function keepItUpdated(self){
       })
       if(res){
         if(res.get){
-          if(!Buffer.isBuffer(res.get.v) || !checkHash.test(res.get.v.toString('utf-8')) || typeof(res.get.seq) !== 'number'){
+          if(!Buffer.isBuffer(res.get.v) || !checkHash.test(res.get.v.toString('hex')) || typeof(res.get.seq) !== 'number'){
             self.properties[i].active = false
             // self.emit('deactivate', self.properties[i])
           } else {
             if(!self.properties[i].signed){
               self.properties[i].address = res.get.k.toString('hex')
-              self.properties[i].infoHash = res.get.v.toString('utf-8')
+              self.properties[i].infoHash = res.get.v.toString('hex')
               self.properties[i].sequence = res.get.seq
               self.properties[i].sig = res.get.sig.toString('hex')
             }
@@ -181,6 +188,15 @@ async function keepItUpdated(self){
           self.properties[i].active = false
         }
       }
+      if(self.properties[i].active){
+        if(tempInfoHash !== this.properties[i].infoHash || tempSequence !== this.properties[i].sequence){
+          self.emit('update', {...self.properties[i], prevInfoHash: tempInfoHash, prevSequence: tempSequence, diffHash: tempInfoHash !== this.properties[i].infoHash, diffSeq: tempSequence !== this.properties[i].sequence})
+        } else {
+          self.emit('current', {...self.properties[i], prevInfoHash: tempInfoHash, prevSequence: tempSequence, diffHash: tempInfoHash !== this.properties[i].infoHash, diffSeq: tempSequence !== this.properties[i].sequence})
+        }
+      } else if(!self.properties[i].active){
+        self.emit('deactivate', {...self.properties[i], prevInfoHash: tempInfoHash, prevSequence: tempSequence, diffHash: tempInfoHash !== this.properties[i].infoHash, diffSeq: tempSequence !== this.properties[i].sequence})
+      }
     } else if(check){
       let getRes = await new Promise((resolve, reject) => {
         dht.get(self.properties[i].address, (error, data) => {
@@ -196,12 +212,12 @@ async function keepItUpdated(self){
         })
       })
       if(getRes){
-        if(!Buffer.from(getRes.v) || !checkHash.test(getRes.v.toString('utf-8')) || typeof(getRes.seq) !== 'number'){
+        if(!Buffer.from(getRes.v) || !checkHash.test(getRes.v.toString('hex')) || typeof(getRes.seq) !== 'number'){
           self.properties[i].active = false
         } else {
           if(!self.properties[i].active){
             self.properties[i].address = getRes.k.toString('hex')
-            self.properties[i].infoHash = getRes.v.toString('utf-8')
+            self.properties[i].infoHash = getRes.v.toString('hex')
             self.properties[i].sequence = getRes.seq
             self.properties[i].sig = getRes.sig.toString('hex')
           }
@@ -224,11 +240,17 @@ async function keepItUpdated(self){
           self.properties[i].active = false
         }
       }
-    }
-    if(self.properties[i].active){
-      self.emit('update', self.properties[i])
-    } else if(!self.properties[i].active){
-      self.emit('deactivate', self.properties[i])
+      if(self.properties[i].active){
+        if(tempInfoHash !== this.properties[i].infoHash || tempSequence !== this.properties[i].sequence){
+          self.emit('update', {...self.properties[i], prevInfoHash: tempInfoHash, prevSequence: tempSequence, diffHash: tempInfoHash !== this.properties[i].infoHash, diffSeq: tempSequence !== this.properties[i].sequence})
+        } else {
+          self.emit('current', {...self.properties[i], prevInfoHash: tempInfoHash, prevSequence: tempSequence, diffHash: tempInfoHash !== this.properties[i].infoHash, diffSeq: tempSequence !== this.properties[i].sequence})
+        }
+      } else if(!self.properties[i].active){
+        self.emit('inactive', {...self.properties[i], prevInfoHash: tempInfoHash, prevSequence: tempSequence, diffHash: tempInfoHash !== this.properties[i].infoHash, diffSeq: tempSequence !== this.properties[i].sequence})
+      }
+    } else if(!this.properties[i].active){
+      self.emit('inactive', {...self.properties[i], prevInfoHash: tempInfoHash, prevSequence: tempSequence, diffHash: tempInfoHash !== this.properties[i].infoHash, diffSeq: tempSequence !== this.properties[i].sequence})
     }
     await new Promise(resolve => setTimeout(resolve, 3000))
   }
@@ -278,6 +300,7 @@ class WebProperty extends EventEmitter {
         opt.check = false
       }
     }
+    this.properties = []
     dht = opt.dht
     database = level('database')
     folder = path.resolve('./magnet')
@@ -287,8 +310,6 @@ class WebProperty extends EventEmitter {
     if(!fs.existsSync('./magnet')){
       fs.mkdirSync('./magnet', {recursive: true})
     }
-
-    this.properties = []
 
     startUp(this).catch(error => {
       this.emit('error', error)
@@ -412,10 +433,10 @@ class WebProperty extends EventEmitter {
           return callback(err)
         } else if(res){
 
-          if(!Buffer.isBuffer(res.v) || !checkHash.test(res.v.toString('utf-8')) || typeof(res.seq) !== 'number'){
+          if(!Buffer.isBuffer(res.v) || !checkHash.test(res.v.toString('hex')) || typeof(res.seq) !== 'number'){
             return callback(new Error('data has invalid values'))
           } else {
-            let main = {magnet: `magnet:?xs=${BTPK_PREFIX}${address}`, address, infoHash: res.v.toString('utf-8'), sequence: res.seq, active: true, signed: false, sig: res.sig.toString('hex')}
+            let main = {magnet: `magnet:?xs=${BTPK_PREFIX}${address}`, address, infoHash: res.v.toString('hex'), sequence: res.seq, active: true, signed: false, sig: res.sig.toString('hex')}
             if(manage){
               database.put(main.address, JSON.stringify(main), error => {
                 if(error){
@@ -464,9 +485,8 @@ class WebProperty extends EventEmitter {
     }
     let propertyData = null
     if(manage){
-      propertyData = this.search(keypair.address)
+      propertyData = this.grab(keypair.address)
       if(propertyData){
-        propertyData = propertyData.data
         sequence = propertyData.sequence + 1
         if(propertyData.infoHash === infoHash){
           return callback(new Error('address key is already attached to this infoHash'))

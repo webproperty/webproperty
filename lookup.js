@@ -75,7 +75,7 @@ class WebProperty extends EventEmitter {
           return callback(err)
         } else if(res){
 
-          if(!Buffer.isBuffer(res.v) || !checkHash.test(res.v.toString('utf-8')) || typeof(res.seq) !== 'number'){
+          if(!Buffer.isBuffer(res.v) || !checkHash.test(res.v.toString('hex')) || typeof(res.seq) !== 'number'){
             return callback(new Error('data has invalid values'))
           } else {
             const main = {magnet: `magnet:?xs=${BTPK_PREFIX}${address}`, address, infoHash: res.v.toString('hex'), sequence: res.seq, active: true, signed: false, sig: res.sig.toString('hex')}
