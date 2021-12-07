@@ -98,7 +98,7 @@ class WebProperty extends EventEmitter {
     if (!callback) {
       callback = () => noop
     }
-    if(!infoHash || typeof(infoHash) !== 'string'){
+    if(!infoHash || typeof(infoHash) !== 'string' || !checkHash.test(infoHash)){
       return callback(new Error('must have infoHash'))
     }
     if(!sequence || typeof(sequence) !== 'number'){
@@ -127,6 +127,20 @@ class WebProperty extends EventEmitter {
         return callback(null, {...main, hash, number})
       }
     })
+  }
+
+  shred(address, callback){
+    if (!callback) {
+      callback = () => noop
+    }
+    if(!check){
+      return callback(new Error('not helping with addresses'))
+    }
+    if(!this.properties.includes(address)){
+      return callback(new Error('did not find address'))
+    }
+    this.properties.splice(this.properties.indexOf(address), 1)
+    return callback(address + ' has been removed')
   }
 
   current(address, callback){

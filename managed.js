@@ -60,7 +60,7 @@ async function purgeInActive(self){
         }
       })
     })
-    self.emit('dead', tempProps[i])
+    self.emit('remove', tempProps[i])
   }
   self.properties = self.properties.filter(data => {return data.active})
   tempProps = null
@@ -491,9 +491,9 @@ class WebProperty extends EventEmitter {
     let propertyData = this.grab(keypair.address)
     if(propertyData){
       sequence = propertyData.sequence + 1
-      if(propertyData.infoHash === infoHash){
-        return callback(new Error('address key is already attached to this infoHash'))
-      }
+      // if(propertyData.infoHash === infoHash){
+      //   return callback(new Error('address key is already attached to this infoHash'))
+      // }
     }
 
     const buffAddKey = Buffer.from(keypair.address, 'hex')
