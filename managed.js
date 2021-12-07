@@ -300,6 +300,7 @@ class WebProperty extends EventEmitter {
       opt.dht = new DHT({verify: ed.verify})
       opt.takeOutInActive = false
       opt.check = false
+      opt.folder = path.resolve('./magnet')
     } else {
       if(typeof(opt) !== 'object' || Array.isArray(opt)){
         opt = {}
@@ -313,6 +314,9 @@ class WebProperty extends EventEmitter {
       if(!opt.check){
         opt.check = false
       }
+      if(!opt.folder){
+        opt.folder = path.resolve('./magnet')
+      }
     }
     this.properties = []
     dht = opt.dht
@@ -320,7 +324,7 @@ class WebProperty extends EventEmitter {
     takeOutInActive = opt.takeOutInActive
     readyAndNotBusy = true
     database = level('database')
-    folder = path.resolve('./magnet')
+    folder = opt.folder
     if(!fs.existsSync('./magnet')){
       fs.mkdirSync('./magnet', {recursive: true})
     }
