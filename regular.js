@@ -6,7 +6,6 @@ const path = require('path')
 const level = require('level')
 const bencode = require('bencode')
 const EventEmitter = require('events').EventEmitter
-const { get } = require('http')
 
 const BTPK_PREFIX = 'urn:btpk:'
 const BITH_PREFIX = 'urn:btih:'
@@ -624,15 +623,10 @@ class WebProperty extends EventEmitter {
     })
   }
 
-  createKeypair (seed) {
-    const addressKey = Buffer.alloc(sodium.crypto_sign_PUBLICKEYBYTES)
-    const secretKey = Buffer.alloc(sodium.crypto_sign_SECRETKEYBYTES)
+  createKeypair () {
+    let {publicKey, secretKey} = ed.createKeyPair(ed.createSeed())
 
-    if (seed) {
-      sodium.crypto_sign_seed_keypair(addressKey, secretKey, seed)
-    } else { sodium.crypto_sign_keypair(addressKey, secretKey) }
-
-    return { address: addressKey.toString('hex'), secret: secretKey.toString('hex') }
+    return { address: publicKey.toString('hex'), secret: secretKey.toString('hex') }
   }
 
   addressFromLink(link){

@@ -1,5 +1,4 @@
 const DHT = require('bittorrent-dht')
-const sodium = require('sodium-universal')
 const sha1 = require('simple-sha1')
 const fs = require('fs')
 const path = require('path')
@@ -306,17 +305,6 @@ async function keepItUpdated(self){
   setTimeout(() => {if(readyAndNotBusy){keepItUpdated(self).catch(error => {self.emit('error', error)})}}, 3600000)
 }
 
-// function verify (signature, message, address) {
-//   return ed.verify(signature, message, address)
-//   // return sodium.crypto_sign_verify_detached(signature, message, address)
-// }
-
-// function sign (message, address, secret) {
-//   return ed.sign(message, address, secret)
-//   // const signature = Buffer.alloc(sodium.crypto_sign_BYTES)
-//   // sodium.crypto_sign_detached(signature, message, secret)
-//   // return signaturelet
-
 class WebProperty extends EventEmitter {
   constructor (opt) {
     super()
@@ -621,13 +609,6 @@ class WebProperty extends EventEmitter {
   }
 
   createKeypair () {
-    // const addressKey = Buffer.alloc(sodium.crypto_sign_PUBLICKEYBYTES)
-    // const secretKey = Buffer.alloc(sodium.crypto_sign_SECRETKEYBYTES)
-
-    // if (seed) {
-    //   sodium.crypto_sign_seed_keypair(addressKey, secretKey, seed)
-    // } else { sodium.crypto_sign_keypair(addressKey, secretKey) }
-
     let {publicKey, secretKey} = ed.createKeyPair(ed.createSeed())
 
     return { address: publicKey.toString('hex'), secret: secretKey.toString('hex') }
