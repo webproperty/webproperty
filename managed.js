@@ -168,19 +168,31 @@ async function keepItUpdated(self){
       })
       if(res){
         if(res.get){
-          if(!Buffer.isBuffer(res.get.v) || !checkHash.test(res.get.v.toString('hex')) || typeof(res.get.seq) !== 'number'){
-            self.properties[i].active = false
-            // self.emit('deactivate', self.properties[i])
-          } else {
+          try {
+            if(!checkHash.test(res.get.v.ih) || !Number.isInteger(res.get.seq)){
+              throw new Error('data is invalid')
+            }
+            for(const prop in res.get.v){
+              if(prop === 'ih'){
+                res.get.v[prop] = res.get.v[prop].toString('hex')
+              } else {
+                res.get.v[prop] = res.get.v[prop].toString('utf-8')
+              }
+            }
+            let {ih, ...stuff} = res.get.v
             if(!self.properties[i].signed){
               self.properties[i].address = res.get.k.toString('hex')
-              self.properties[i].infoHash = res.get.v.toString('hex')
+              self.properties[i].infoHash = ih
               self.properties[i].sequence = res.get.seq
               self.properties[i].sig = res.get.sig.toString('hex')
+              self.properties[i].stuff = stuff
             }
             if(!res.put){
               self.emit('error', new Error('could not put ' + self.properties[i].address + ' back into the network, still active though since it is being shared by other users'))
             }
+          } catch (error) {
+            self.emit('error', error)
+            self.properties[i].active = false
           }
         }
       } else {
@@ -222,16 +234,29 @@ async function keepItUpdated(self){
         })
       })
       if(getRes){
-        if(!Buffer.from(getRes.v) || !checkHash.test(getRes.v.toString('hex')) || typeof(getRes.seq) !== 'number'){
-          self.properties[i].active = false
-        } else {
+        try {
+          if(!checkHash.test(getRes.v.ih) || !Number.isInteger(getRes.seq)){
+            throw new Error('data is invalid')
+          }
+          for(const prop in getRes.v){
+            if(prop === 'ih'){
+              getRes.v[prop] = getRes.v[prop].toString('hex')
+            } else {
+              getRes.v[prop] = getRes.v[prop].toString('utf-8')
+            }
+          }
+          let {ih, ...stuff} = getRes.v
           if(!self.properties[i].active){
             self.properties[i].address = getRes.k.toString('hex')
-            self.properties[i].infoHash = getRes.v.toString('hex')
+            self.properties[i].infoHash = ih
             self.properties[i].sequence = getRes.seq
             self.properties[i].sig = getRes.sig.toString('hex')
+            self.properties[i].stuff = stuff
           }
           self.properties[i].active = true
+        } catch (error) {
+          self.emit('error', error)
+          self.properties[i].active = false
         }
       } else {
         let putRes = await new Promise((resolve, reject) => {
@@ -442,10 +467,22 @@ class WebProperty extends EventEmitter {
           return callback(err)
         } else if(res){
 
-          if(!Buffer.isBuffer(res.v) || !checkHash.test(res.v.toString('hex')) || typeof(res.seq) !== 'number'){
-            return callback(new Error('data has invalid values'))
-          } else {
-            let main = {magnet: `magnet:?xs=${BTPK_PREFIX}${address}`, address, infoHash: res.v.toString('hex'), sequence: res.seq, active: true, signed: false, sig: res.sig.toString('hex')}
+            try {
+              if(!checkHash.test(res.v.ih) || !Number.isInteger(res.seq)){
+                throw new Error('data is invalid')
+              }
+              for(const prop in res.v){
+                if(prop === 'ih'){
+                  res.v[prop] = res.v[prop].toString('hex')
+                } else {
+                  res.v[prop] = res.v[prop].toString('utf-8')
+                }
+              }
+            } catch (error) {
+              return callback(error)
+            }
+            let {ih, ...stuff} = res.v
+            let main = {magnet: `magnet:?xs=${BTPK_PREFIX}${address}`, address, infoHash: ih, sequence: res.seq, active: true, signed: false, sig: res.sig.toString('hex'), stuff}
             let getData = res
             database.put(address, JSON.stringify(main), error => {
               if(error){
@@ -461,7 +498,6 @@ class WebProperty extends EventEmitter {
                 return callback(null, { ...main, data: getData })
               }
             })
-          }
 
         } else if(!res){
           if(propertyData){
@@ -474,7 +510,7 @@ class WebProperty extends EventEmitter {
     })
   }
 
-  publish (keypair, infoHash, sequence, callback) {
+  publish (keypair, infoHash, sequence, stuff, callback) {
 
     if (!callback) {
       callback = () => noop
@@ -488,6 +524,10 @@ class WebProperty extends EventEmitter {
     if((!keypair) || (!keypair.address || !keypair.secret)){
       keypair = this.createKeypair()
     }
+    if(!stuff || typeof(stuff) !== 'object' || Array.isArray(stuff)){
+      stuff = {}
+    }
+
     let propertyData = this.grab(keypair.address)
     if(propertyData){
       sequence = propertyData.sequence + 1
@@ -498,7 +538,7 @@ class WebProperty extends EventEmitter {
 
     const buffAddKey = Buffer.from(keypair.address, 'hex')
     const buffSecKey = Buffer.from(keypair.secret, 'hex')
-    const v = infoHash
+    const v = {ih: infoHash, ...stuff}
     const seq = sequence
     const buffSig = ed.sign(encodeSigData({seq, v}), buffAddKey, buffSecKey)
     // const mainletagnet, address: keypair.address, infoHash, sequence}
@@ -506,7 +546,7 @@ class WebProperty extends EventEmitter {
       if(putErr){
         return callback(putErr)
       } else {
-        let main = {magnet: `magnet:?xs=${BTPK_PREFIX}${keypair.address}`, address: keypair.address, infoHash, sequence, active: true, signed: true, sig: buffSig.toString('hex')}
+        let main = {magnet: `magnet:?xs=${BTPK_PREFIX}${keypair.address}`, address: keypair.address, infoHash, sequence, active: true, signed: true, sig: buffSig.toString('hex'), stuff}
         let putData = {hash, number}
         database.put(keypair.address, JSON.stringify(main), error => {
           if(error){

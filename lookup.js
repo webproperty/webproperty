@@ -21,7 +21,7 @@ async function keepData(self){
   readyAndNotBusy = false
   for(let i = 0;i < self.properties.length;i++){
     await new Promise((resolve, reject) => {
-      self.current(self.properties[i], (error, data) => {
+      self.current(self.properties[i].address, (error, data) => {
         if(error){
           reject(error)
         } else {
@@ -75,17 +75,28 @@ class WebProperty extends EventEmitter {
           return callback(err)
         } else if(res){
 
-          if(!Buffer.isBuffer(res.v) || !checkHash.test(res.v.toString('hex')) || typeof(res.seq) !== 'number'){
-            return callback(new Error('data has invalid values'))
-          } else {
-            const main = {magnet: `magnet:?xs=${BTPK_PREFIX}${address}`, address, infoHash: res.v.toString('hex'), sequence: res.seq, active: true, signed: false, sig: res.sig.toString('hex')}
+            try {
+              if(!checkHash.test(res.v.ih) || !Number.isInteger(res.seq)){
+                throw new Error('data is invalid')
+              }
+              for(const prop in res.v){
+                if(prop === 'ih'){
+                  res.v[prop] = res.v[prop].toString('hex')
+                } else {
+                  res.v[prop] = res.v[prop].toString('utf-8')
+                }
+              }
+            } catch (error) {
+              return callback(error)
+            }
+            let {ih, ...stuff} = res.v
+            const main = {magnet: `magnet:?xs=${BTPK_PREFIX}${address}`, address, infoHash: ih, sequence: res.seq, active: true, signed: false, sig: res.sig.toString('hex'), stuff}
             if(check){
               if(!this.properties.includes(main.address)){
                 this.properties.push(main.address)
               }
             }
             return callback(null, {...main, id: res.id.toString('hex')})
-          }
         } else if(!res){
           return callback(new Error('Could not resolve address'))
         }
@@ -93,7 +104,7 @@ class WebProperty extends EventEmitter {
     })
   }
 
-  publish (keypair, infoHash, sequence, callback) {
+  publish (keypair, infoHash, sequence, stuff, callback) {
 
     if (!callback) {
       callback = () => noop
@@ -107,10 +118,13 @@ class WebProperty extends EventEmitter {
     if((!keypair) || (!keypair.address || !keypair.secret)){
       keypair = this.createKeypair(false)
     }
+    if(!stuff || typeof(stuff) !== 'object' || Array.isArray(stuff)){
+      stuff = {}
+    }
 
     const buffAddKey = Buffer.from(keypair.address, 'hex')
     const buffSecKey = Buffer.from(keypair.secret, 'hex')
-    const v = infoHash
+    const v = {ih: infoHash, ...stuff}
     const seq = sequence
     const sig = ed.sign(encodeSigData({seq, v}), buffAddKey, buffSecKey)
 
@@ -118,7 +132,7 @@ class WebProperty extends EventEmitter {
       if(putErr){
         return callback(putErr)
       } else {
-        const main = {magnet: `magnet:?xs=${BTPK_PREFIX}${keypair.address}`, address: keypair.address, infoHash, sequence, active: true, signed: true, sig: sig.toString('hex')}
+        const main = {magnet: `magnet:?xs=${BTPK_PREFIX}${keypair.address}`, address: keypair.address, infoHash, sequence, active: true, signed: true, sig: sig.toString('hex'), stuff}
         if(check){
           if(!this.properties.includes(main.address)){
             this.properties.push(main.address)
