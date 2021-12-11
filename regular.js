@@ -139,9 +139,23 @@ async function keepItSaved(self){
   // setTimeout(() => {if(self.readyAndNotBusy){self.keepItSaved().catch(error => {self.emit('error', error)})}}, 1800000)
 }
 
+function deDupe(self){
+  let test = []
+  let mainData = []
+  for(let i = 0;i < self.properties.length;i++){
+    if(!test.includes(self.properties[i].address)){
+      test.push(self.properties[i].address)
+      mainData.push(self.properties[i])
+    }
+  }
+  test = null
+  return mainData
+}
+
 async function keepItUpdated(self){
   readyAndNotBusy = false
   self.emit('check', false)
+  self.properties = deDupe(self)
   for(let i = 0;i < self.properties.length;i++){
     const tempInfoHash = self.properties[i].infoHash
     const tempSequence = self.properties[i].sequence
