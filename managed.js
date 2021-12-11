@@ -542,7 +542,7 @@ class WebProperty extends EventEmitter {
       } else {
         let {ih, ...stuff} = text
         let main = {magnet: `magnet:?xs=${BTPK_PREFIX}${keypair.address}`, address: keypair.address, infoHash: ih, sequence, active: true, signed: true, sig: buffSig.toString('hex'), stuff}
-        let putData = {hash, number}
+        let putData = {hash: hash.toString('hex'), number}
         database.put(keypair.address, JSON.stringify(main), error => {
           if(error){
             return callback(error)
