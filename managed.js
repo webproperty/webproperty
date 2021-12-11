@@ -168,7 +168,7 @@ async function keepItUpdated(self){
       if(res){
         if(res.get){
           try {
-            if(!checkHash.test(res.get.v.ih) || !Number.isInteger(res.get.seq)){
+            if(!checkHash.test(res.get.v.ih.toString('hex')) || !Number.isInteger(res.get.seq)){
               throw new Error('data is invalid')
             }
             for(const prop in res.get.v){
@@ -234,7 +234,7 @@ async function keepItUpdated(self){
       })
       if(getRes){
         try {
-          if(!checkHash.test(getRes.v.ih) || !Number.isInteger(getRes.seq)){
+          if(!checkHash.test(getRes.v.ih.toString('hex')) || !Number.isInteger(getRes.seq)){
             throw new Error('data is invalid')
           }
           for(const prop in getRes.v){
@@ -456,7 +456,7 @@ class WebProperty extends EventEmitter {
         } else if(res){
 
             try {
-              if(!checkHash.test(res.v.ih) || !Number.isInteger(res.seq)){
+              if(!checkHash.test(res.v.ih.toString('hex')) || !Number.isInteger(res.seq)){
                 throw new Error('data is invalid')
               }
               for(const prop in res.v){
@@ -498,22 +498,28 @@ class WebProperty extends EventEmitter {
     })
   }
 
-  publish (keypair, infoHash, sequence, stuff, callback) {
+  publish (keypair, text, sequence, callback) {
 
     if (!callback) {
       callback = () => noop
     }
-    if(!infoHash || typeof(infoHash) !== 'string' || !checkHash.test(infoHash)){
-      return callback(new Error('must have infoHash'))
+    try {
+      for(let prop in text){
+        if(typeof(text[prop]) !== 'string'){
+          throw new Error('text data must be strings')
+        }
+      }
+      if(!checkHash.test(text.ih)){
+        throw new Error('must have infohash')
+      }
+    } catch (error) {
+      return callback(error)
     }
     if(!sequence || typeof(sequence) !== 'number'){
       sequence = 0
     }
     if((!keypair) || (!keypair.address || !keypair.secret)){
       keypair = this.createKeypair()
-    }
-    if(!stuff || typeof(stuff) !== 'object' || Array.isArray(stuff)){
-      stuff = {}
     }
 
     let propertyData = this.grab(keypair.address)
@@ -526,7 +532,7 @@ class WebProperty extends EventEmitter {
 
     const buffAddKey = Buffer.from(keypair.address, 'hex')
     const buffSecKey = Buffer.from(keypair.secret, 'hex')
-    const v = {ih: infoHash, ...stuff}
+    const v = text
     const seq = sequence
     const buffSig = ed.sign(encodeSigData({seq, v}), buffAddKey, buffSecKey)
     // const mainletagnet, address: keypair.address, infoHash, sequence}
@@ -534,7 +540,8 @@ class WebProperty extends EventEmitter {
       if(putErr){
         return callback(putErr)
       } else {
-        let main = {magnet: `magnet:?xs=${BTPK_PREFIX}${keypair.address}`, address: keypair.address, infoHash, sequence, active: true, signed: true, sig: buffSig.toString('hex'), stuff}
+        let {ih, ...stuff} = text
+        let main = {magnet: `magnet:?xs=${BTPK_PREFIX}${keypair.address}`, address: keypair.address, infoHash: ih, sequence, active: true, signed: true, sig: buffSig.toString('hex'), stuff}
         let putData = {hash, number}
         database.put(keypair.address, JSON.stringify(main), error => {
           if(error){
