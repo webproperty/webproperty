@@ -168,15 +168,11 @@ async function keepItUpdated(self){
       if(res){
         if(res.get){
           try {
-            if(!checkHash.test(res.get.v.ih.toString('hex')) || !Number.isInteger(res.get.seq)){
+            if(!checkHash.test(res.get.v.ih.toString('utf-8')) || !Number.isInteger(res.get.seq)){
               throw new Error('data is invalid')
             }
             for(const prop in res.get.v){
-              if(prop === 'ih'){
-                res.get.v[prop] = res.get.v[prop].toString('hex')
-              } else {
-                res.get.v[prop] = res.get.v[prop].toString('utf-8')
-              }
+              res.get.v[prop] = res.get.v[prop].toString('utf-8')
             }
             let {ih, ...stuff} = res.get.v
             if(!self.properties[i].signed){
@@ -234,15 +230,11 @@ async function keepItUpdated(self){
       })
       if(getRes){
         try {
-          if(!checkHash.test(getRes.v.ih.toString('hex')) || !Number.isInteger(getRes.seq)){
+          if(!checkHash.test(getRes.v.ih.toString('utf-8')) || !Number.isInteger(getRes.seq)){
             throw new Error('data is invalid')
           }
           for(const prop in getRes.v){
-            if(prop === 'ih'){
-              getRes.v[prop] = getRes.v[prop].toString('hex')
-            } else {
-              getRes.v[prop] = getRes.v[prop].toString('utf-8')
-            }
+            getRes.v[prop] = getRes.v[prop].toString('utf-8')
           }
           let {ih, ...stuff} = getRes.v
           if(!self.properties[i].active){
@@ -456,15 +448,11 @@ class WebProperty extends EventEmitter {
         } else if(res){
 
             try {
-              if(!checkHash.test(res.v.ih.toString('hex')) || !Number.isInteger(res.seq)){
+              if(!checkHash.test(res.v.ih.toString('utf-8')) || !Number.isInteger(res.seq)){
                 throw new Error('data is invalid')
               }
               for(const prop in res.v){
-                if(prop === 'ih'){
-                  res.v[prop] = res.v[prop].toString('hex')
-                } else {
-                  res.v[prop] = res.v[prop].toString('utf-8')
-                }
+                res.v[prop] = res.v[prop].toString('utf-8')
               }
             } catch (error) {
               return callback(error)

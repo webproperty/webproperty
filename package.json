@@ -1,6 +1,6 @@
 {
   "name": "webproperty",
-  "version": "1.4.3",
+  "version": "1.4.4",
   "description": "Properties on the DHT",
   "main": "index.js",
   "scripts": {
