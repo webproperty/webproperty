@@ -566,11 +566,11 @@ class WebProperty extends EventEmitter {
               } else {
                 this.properties.push(main)
               }
-              return callback(null, {...main, hash, number})
+              return callback(null, {...main, hash: hash.toString('hex'), number})
             }
           })
         } else {
-          return callback(null, {...main, hash, number})
+          return callback(null, {...main, hash: hash.toString('hex'), number})
         }
       }
     })
@@ -593,7 +593,7 @@ class WebProperty extends EventEmitter {
             if(putErr){
               return callback(null, getData, null)
             } else {
-              return callback(null, getData, {hash: hash, number})
+              return callback(null, getData, {hash: hash.toString('hex'), number})
             }
           })
         } else if(!getData){
@@ -620,7 +620,7 @@ class WebProperty extends EventEmitter {
             if(putErr){
               return callback(putErr)
             } else {
-              return callback(null, getData, {hash: hash, number})
+              return callback(null, getData, {hash: hash.toString('hex'), number})
             }
           })
         } else if(!getData){
