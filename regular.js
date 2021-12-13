@@ -187,13 +187,15 @@ async function keepItUpdated(self){
               self.properties[i].sig = res.get.sig.toString('hex')
               self.properties[i].stuff = stuff
             }
-            if(!res.put){
-              self.emit('error', new Error('could not put ' + self.properties[i].address + ' back into the network, still active though since it is being shared by other users'))
-            }
           } catch (error) {
             self.emit('error', error)
             self.properties[i].active = false
           }
+        }
+        if(res.put){
+          self.emit('extra', 'put ' + self.properties[i].address + ' back into the network')
+        } else {
+          self.emit('extra', 'could not put ' + self.properties[i].address + ' back into the network, still active though since it is being shared by other users')
         }
       } else {
         let putRes = await new Promise((resolve, reject) => {

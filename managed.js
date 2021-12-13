@@ -131,7 +131,7 @@ async function keepSigned(self){
       //     resolve(data)
       //   }
       // }))
-      dht.put({k: Buffer.from(tempProps[i].address, 'hex'), v: tempProps[i].infoHash, seq: tempProps[i].sequence, sig: Buffer.from(tempProps[i].sig, 'hex')}, (error, hash, number) => {
+      dht.put({k: Buffer.from(tempProps[i].address, 'hex'), v: {ih: tempProps[i].infoHash, ...tempProps[i].stuff}, seq: tempProps[i].sequence, sig: Buffer.from(tempProps[i].sig, 'hex')}, (error, hash, number) => {
           if(error){
           reject(null)
           } else {
@@ -196,17 +196,19 @@ async function keepItUpdated(self){
               self.properties[i].sig = res.get.sig.toString('hex')
               self.properties[i].stuff = stuff
             }
-            if(!res.put){
-              self.emit('error', new Error('could not put ' + self.properties[i].address + ' back into the network, still active though since it is being shared by other users'))
-            }
           } catch (error) {
             self.emit('error', error)
             self.properties[i].active = false
           }
         }
+        if(res.put){
+          self.emit('extra', 'put ' + self.properties[i].address + ' back into the network')
+        } else {
+          self.emit('extra', 'could not put ' + self.properties[i].address + ' back into the network, still active though since it is being shared by other users')
+        }
       } else {
         let putRes = await new Promise((resolve, reject) => {
-          dht.put({k: Buffer.from(self.properties[i].address, 'hex'), v: self.properties[i].infoHash, seq: self.properties[i].sequence, sig: Buffer.from(self.properties[i].sig, 'hex')}, (error, hash, number) => {
+          dht.put({k: Buffer.from(self.properties[i].address, 'hex'), v: {ih: self.properties[i].infoHash, ...self.properties[i].stuff}, seq: self.properties[i].sequence, sig: Buffer.from(self.properties[i].sig, 'hex')}, (error, hash, number) => {
             if(error){
               self.emit('error', error)
               reject(null)
@@ -265,7 +267,7 @@ async function keepItUpdated(self){
         }
       } else {
         let putRes = await new Promise((resolve, reject) => {
-          dht.put({k: Buffer.from(self.properties[i].address, 'hex'), v: self.properties[i].infoHash, seq: self.properties[i].sequence, sig: Buffer.from(self.properties[i].sig, 'hex')}, (error, hash, number) => {
+          dht.put({k: Buffer.from(self.properties[i].address, 'hex'), v: {ih: self.properties[i].infoHash, ...self.properties[i].stuff}, seq: self.properties[i].sequence, sig: Buffer.from(self.properties[i].sig, 'hex')}, (error, hash, number) => {
             if(error){
               self.emit('error', error)
               reject(null)
