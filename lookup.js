@@ -80,11 +80,7 @@ class WebProperty extends EventEmitter {
                 throw new Error('data is invalid')
               }
               for(const prop in res.v){
-                if(prop === 'ih'){
-                  res.v[prop] = res.v[prop].toString('hex')
-                } else {
-                  res.v[prop] = res.v[prop].toString('utf-8')
-                }
+                res.v[prop] = res.v[prop].toString('utf-8')
               }
             } catch (error) {
               return callback(error)
