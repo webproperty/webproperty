@@ -556,7 +556,7 @@ class WebProperty extends EventEmitter {
             } else {
               this.properties.push(main)
             }
-            return callback(null, {...main, netdata: {hash, number}})
+            return callback(null, {...main, netdata: {hash, number}, secret: keypair.secret})
           }
         })
       }
