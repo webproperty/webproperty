@@ -494,11 +494,11 @@ class WebProperty extends EventEmitter {
                   } else {
                     this.properties.push(main)
                   }
-                  return callback(null, {...main, id: res.id.toString('hex')})
+                  return callback(null, {...main, netdata: res})
                 }
               })
             } else {
-              return callback(null, {...main, id: res.id.toString('hex')})
+              return callback(null, {...main, netdata: res})
             }
 
         } else if(!res){
@@ -570,11 +570,11 @@ class WebProperty extends EventEmitter {
               } else {
                 this.properties.push(main)
               }
-              return callback(null, {...main, hash: hash.toString('hex'), number})
+              return callback(null, {...main, netdata: {hash, number}})
             }
           })
         } else {
-          return callback(null, {...main, hash: hash.toString('hex'), number})
+          return callback(null, {...main, netdata: {hash, number}})
         }
       }
     })

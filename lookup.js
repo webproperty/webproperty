@@ -96,7 +96,7 @@ class WebProperty extends EventEmitter {
                 this.properties.push(main.address)
               }
             }
-            return callback(null, {...main, id: res.id.toString('hex')})
+            return callback(null, {...main, netdata: res})
         } else if(!res){
           return callback(new Error('Could not resolve address'))
         }
@@ -138,7 +138,7 @@ class WebProperty extends EventEmitter {
             this.properties.push(main.address)
           }
         }
-        return callback(null, {...main, hash, number})
+        return callback(null, {...main, netdata: {hash, number}})
       }
     })
   }

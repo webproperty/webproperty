@@ -475,7 +475,6 @@ class WebProperty extends EventEmitter {
             }
             let {ih, ...stuff} = res.v
             let main = {magnet: `magnet:?xs=${BTPK_PREFIX}${address}`, address, infoHash: ih, sequence: res.seq, active: true, signed: false, sig: res.sig.toString('hex'), stuff}
-            let getData = res
             database.put(address, JSON.stringify(main), error => {
               if(error){
                 return callback(error)
@@ -487,7 +486,7 @@ class WebProperty extends EventEmitter {
                 } else {
                   this.properties.push(main)
                 }
-                return callback(null, { ...main, data: getData })
+                return callback(null, { ...main, netdata: res })
               }
             })
 
@@ -546,7 +545,6 @@ class WebProperty extends EventEmitter {
       } else {
         let {ih, ...stuff} = text
         let main = {magnet: `magnet:?xs=${BTPK_PREFIX}${keypair.address}`, address: keypair.address, infoHash: ih, sequence, active: true, signed: true, sig: buffSig.toString('hex'), stuff}
-        let putData = {hash: hash.toString('hex'), number}
         database.put(keypair.address, JSON.stringify(main), error => {
           if(error){
             return callback(error)
@@ -558,7 +556,7 @@ class WebProperty extends EventEmitter {
             } else {
               this.properties.push(main)
             }
-            return callback(null, {...main, data: putData})
+            return callback(null, {...main, netdata: {hash, number}})
           }
         })
       }
