@@ -18,10 +18,10 @@ lookup is used for the bare minimum, you can publish an infohash under a public 
 `webproperty.publish(keypairObject, infoHashString, sequenceNumber, metaObject, (errorCallback, responseCallback))`
 
 
-**keypair**
+**keypair**  \n
 
 
-<br />is optional, can either be an object with the address(public key) and secret(private key) `{address: publickey, secret: privatekey}`, or it can be a falsy value like `null` and it will create a keypair for you
+is optional, can either be an object with the address(public key) and secret(private key) `{address: publickey, secret: privatekey}`, or it can be a falsy value like `null` and it will create a keypair for you
 
 
 **infoHashString**
