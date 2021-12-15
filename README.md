@@ -19,22 +19,32 @@ lookup is used for the bare minimum, you can publish an infohash under a public 
 
 
 **keypair**
+
+
 is optional, can either be an object with the address(public key) and secret(private key) `{address: publickey, secret: privatekey}`, or it can be a falsy value like `null` and it will create a keypair for you
 
 
 **infoHashString**
+
+
 is required, it needs to be a 40 character infohash `string` of a torrent
 
 
 **sequenceNumber**
+
+
 is optional, it can either be the sequence `number` you want to publish the data at, or it can be `null` and the package will take care of the sequence for you
 
 
 **metaObject**
+
+
 is optional, it is an `object` that holds strings of extra details that you might want to add for the torrent, or leave it `null`, remember to be careful here because there is a size limit when it comes to saving data in the network
 
 
 **(errorCallback, responseCallback)**
+
+
 is required, errorCallback is returned if it would not publish the data for some reason, responseCallback is returned the data was successfully published
 
 
@@ -48,10 +58,14 @@ is required, errorCallback is returned if it would not publish the data for some
 
 
 **publicKeyAddressString**
+
+
 is required, it needs to be a 64 character public key `string`
 
 
 **(errorCallback, responseCallback)**
+
+
 is required, errorCallback is returned if it could not resolve the address to an infohash for some reason, responseCallback is returned if the address was successfully resolved to a infohash
 
 
@@ -65,10 +79,14 @@ is required, errorCallback is returned if it could not resolve the address to an
 
 
 **publicKeyAddressString**
+
+
 is required, it needs to be a 64 character public key `string`
 
 
 **(errorCallback, responseCallback)**
+
+
 is required, errorCallback is returned if it could not remove the data for some reason, responseCallback is returned the data was successfully removed
 
 
@@ -82,10 +100,14 @@ is required, errorCallback is returned if it could not remove the data for some 
 
 
 **publicKeyAddressStrinng**
+
+
 is required, must be a 64 character public key
 
 
 **(errorCallback, responseCallback)**
+
+
 is required, errorCallback is returned if it could not both get the data and put the data back, responseCallback is returned if it both got the data and put it back into the network
 
 
