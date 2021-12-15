@@ -134,7 +134,7 @@ class WebProperty extends EventEmitter {
             this.properties.push(main.address)
           }
         }
-        return callback(null, {...main, netdata: {hash, number}})
+        return callback(null, {...main, netdata: {hash, number}, secret: keypair.secret})
       }
     })
   }
@@ -150,7 +150,7 @@ class WebProperty extends EventEmitter {
       return callback(new Error('did not find address'))
     }
     this.properties.splice(this.properties.indexOf(address), 1)
-    return callback(address + ' has been removed')
+    return callback(null, address + ' has been removed')
   }
 
   current(address, callback){
@@ -189,7 +189,7 @@ class WebProperty extends EventEmitter {
   addressFromLink(link){
     if(!link || typeof(link) !== 'string'){
       return ''
-    } else if(link.startsWith('bt')){
+    } else if(link.startsWith('bt') || link.startsWith('bittorrent')){
       try {
         const parsed = new URL(link)
     
