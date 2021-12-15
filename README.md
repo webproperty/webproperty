@@ -8,73 +8,73 @@ Using this package you can update your torrents by using a public key
 There are 3 modules in this package, they are the following: lookup, managed, and regular
 
 ## lookup
-lookup is used for the bare minimum, you can publish an infohash under a public key and you can resolve a public key to a infohash
+lookup is used for the bare minimum, you can publish an infohash under a public key and you can resolve a public key to a infohash<br />
 
 ### publish
-#### take an infohash and publish it in the network with a public key
+#### take an infohash and publish it in the network with a public key<br />
 
-`webproperty.publish(keypairObject, infoHashString, sequenceNumber, metaObject, (errorCallback, responseCallback))`
+`webproperty.publish(keypairObject, infoHashString, sequenceNumber, metaObject, (errorCallback, responseCallback))`<br />
 
-**keypair** is optional, can either be an object with the address(public key) and secret(private key) `{address: publickey, secret: privatekey}`, or it can be a falsy value like `null` and it will create a keypair for you
+**keypair** is optional, can either be an object with the address(public key) and secret(private key) `{address: publickey, secret: privatekey}`, or it can be a falsy value like `null` and it will create a keypair for you<br />
 
-**infoHashString** is required, it needs to be a 40 character infohash `string` of a torrent
+**infoHashString** is required, it needs to be a 40 character infohash `string` of a torrent<br />
 
-**sequenceNumber** is optional, it can either be the sequence `number` you want to publish the data at, or it can be `null` and the package will take care of the sequence for you
+**sequenceNumber** is optional, it can either be the sequence `number` you want to publish the data at, or it can be `null` and the package will take care of the sequence for you<br />
 
-**metaObject** is optional, it is an `object` that holds strings of extra details that you might want to add for the torrent, or leave it `null`, remember to be careful here because there is a size limit when it comes to saving data in the network
+**metaObject** is optional, it is an `object` that holds strings of extra details that you might want to add for the torrent, or leave it `null`, remember to be careful here because there is a size limit when it comes to saving data in the network<br />
 
-**(errorCallback, responseCallback)** is required, errorCallback is returned if it would not publish the data for some reason, responseCallback is returned the data was successfully published
+**(errorCallback, responseCallback)** is required, errorCallback is returned if it would not publish the data for some reason, responseCallback is returned the data was successfully published<br />
 
 --------------------------
 
 ### resolve
-#### take a public key and get all of the associated data for it including the infohash tied to it
+#### take a public key and get all of the associated data for it including the infohash tied to it<br />
 
-`webproperty.resolve(publicKeyAddressString, (errorCallback, responseCallback))`
+`webproperty.resolve(publicKeyAddressString, (errorCallback, responseCallback))`<br />
 
-**publicKeyAddressString** is required, it needs to be a 64 character public key `string`
+**publicKeyAddressString** is required, it needs to be a 64 character public key `string`<br />
 
-**(errorCallback, responseCallback)** is required, errorCallback is returned if it could not resolve the address to an infohash for some reason, responseCallback is returned if the address was successfully resolved to a infohash
+**(errorCallback, responseCallback)** is required, errorCallback is returned if it could not resolve the address to an infohash for some reason, responseCallback is returned if the address was successfully resolved to a infohash<br />
 
 --------------------------------
 
 ### shred
-#### remove an address, if you are helping putting the data back into the network
+#### remove an address, if you are helping putting the data back into the network<br />
 
-`webproperty.shred(publicKeyAddressString, (errorCallback, responseCallback))`
+`webproperty.shred(publicKeyAddressString, (errorCallback, responseCallback))`<br />
 
-**publicKeyAddressString** is required, it needs to be a 64 character public key `string`
+**publicKeyAddressString** is required, it needs to be a 64 character public key `string`<br />
 
-**(errorCallback, responseCallback)** is required, errorCallback is returned if it could not remove the data for some reason, responseCallback is returned the data was successfully removed
+**(errorCallback, responseCallback)** is required, errorCallback is returned if it could not remove the data for some reason, responseCallback is returned the data was successfully removed<br />
 
 ------------------------------------
 
 ### current
-#### takes an address and gets the data from the network and then puts that data back into the network to keep it active
+#### takes an address and gets the data from the network and then puts that data back into the network to keep it active<br />
 
-`webproperty.current(publicKeyAddressString, (errorCallback, responseCallback))`
+`webproperty.current(publicKeyAddressString, (errorCallback, responseCallback))`<br />
 
-**publicKeyAddressStrinng** is required, must be a 64 character public key
+**publicKeyAddressStrinng** is required, must be a 64 character public key<br />
 
-**(errorCallback, responseCallback)** is required, errorCallback is returned if it could not both get the data and put the data back, responseCallback is returned if it both got the data and put it back into the network
+**(errorCallback, responseCallback)** is required, errorCallback is returned if it could not both get the data and put the data back, responseCallback is returned if it both got the data and put it back into the network<br />
 
 -------------------------------------------
 
 ### createKeypair
-#### creates a keypair for you
+#### creates a keypair for you<br />
 
-`webproperty.createKeypair()`
+`webproperty.createKeypair()`<br />
 
-return a `{address: publicKeyString, secret: privateKeyString}` object, both address and secret in the object will be a string
+return a `{address: publicKeyString, secret: privateKeyString}` object, both address and secret in the object will be a string<br />
 
 ----------------------------------------------
 
 ### addressFromLink
-#### takes a magnet link or a uri like bt:// or bittorrent:// or just the address by itself
+#### takes a magnet link or a uri like bt:// or bittorrent:// or just the address by itself<br />
 
-`webproperty.addressFromLink(linkString)`
+`webproperty.addressFromLink(linkString)`<br />
 
-returns the public key address after parsing the string
+returns the public key address after parsing the string<br />
 
 -------------------------------------------------
 
