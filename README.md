@@ -7,7 +7,9 @@ Using this package you can update your torrents by using a public key
 
 There are 3 modules in this package, they are the following: lookup, managed, and regular
 
+
 ## lookup
+`const {WebProperty, verify} = require('webproperty/lookup.js')`
 lookup is used for the bare minimum, you can publish an infohash under a public key and you can resolve a public key to a infohash
 
 
