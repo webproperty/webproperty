@@ -136,6 +136,19 @@ return a `{address: publicKeyString, secret: privateKeyString}` object, both add
 
 returns the public key address after parsing the string
 
+-------------------------------------
+
+### events
+
+### error
+#### emits this event if there is an error, the check option must be enabled
+
+
+`webproperty.on('error', error)`
+
+
+the error event is fired when there is an error, the `check` option must be enabled
+
 
 -------------------------------------------------
 
