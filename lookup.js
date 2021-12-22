@@ -19,11 +19,45 @@ let dht = null
 let readyAndNotBusy = null
 let folder = null
 
+async function startUp(self){
+  let contents = await new Promise((resolve, reject) => {
+    fs.readdir(folder, {withFileTypes: false}, (error, files) => {
+      if(error){
+        reject(null)
+      } else if(files){
+        resolve(files)
+      } else if(!files){
+        reject(null)
+      }
+    })
+  })
+  for(let i = 0;i < contents.length;i++){
+    let content = await new Promise((resolve, reject) => {
+      fs.readFile(folder + path.sep + contents[i], {flag: 'r'}, (error, data) => {
+        if(error){
+          reject(null)
+        } else if(data){
+          resolve(JSON.parse(data.toString('utf-8')))
+        } else if(!data){
+          reject(null)
+        }
+      })
+    })
+    if(content){
+      if(!self.properties.includes(content.address)){
+        self.properties.push(content.address)
+      }
+    }
+  }
+  contents = null
+  await keepItUpdated(self)
+}
+
 async function keepItUpdated(self){
   readyAndNotBusy = false
   for(let i = 0;i < self.properties.length;i++){
     await new Promise((resolve, reject) => {
-      self.current(self.properties[i].address, (error, data) => {
+      self.current(self.properties[i], (error, data) => {
         if(error){
           reject(error)
         } else {
@@ -31,18 +65,6 @@ async function keepItUpdated(self){
         }
       })
     })
-    if(self.properties[i].signed){
-      await new Promise((resolve, reject) => {
-        fs.writeFile(folder + path.sep + self.properties[i].address, JSON.stringify(self.properties[i]), error => {
-          if(error){
-            self.emit('error', error)
-            reject(false)
-          } else {
-            resolve(true)
-          }
-        })
-      })
-    }
   }
   readyAndNotBusy = true
   setTimeout(() => {if(readyAndNotBusy){keepItUpdated(self).catch(error => {self.emit('error', error)})}}, 1800000)
@@ -67,7 +89,7 @@ class WebProperty extends EventEmitter {
     readyAndNotBusy = true
     folder = path.resolve(path.resolve(opt.folder) + path.sep + 'magnet')
     this.properties = []
-    keepItUpdated(this).catch(error => {this.emit('error', error)})
+    startUp(this).catch(error => {this.emit('error', error)})
   }
 
   resolve (address, callback) {
@@ -99,10 +121,8 @@ class WebProperty extends EventEmitter {
             }
             let {ih, ...stuff} = res.v
             const main = {magnet: `magnet:?xs=${BTPK_PREFIX}${address}`, address, infoHash: ih, sequence: res.seq, active: true, signed: false, sig: res.sig.toString('hex'), stuff}
-            if(check){
-              if(!this.properties.includes(main.address)){
-                this.properties.push(main.address)
-              }
+            if(!this.properties.includes(main.address)){
+              this.properties.push(main.address)
             }
             return callback(null, {...main, netdata: res})
         } else if(!res){
@@ -139,8 +159,6 @@ class WebProperty extends EventEmitter {
       return callback(new Error('must have secret or signature'))
     }
 
-    let propertyData = this.grab(address)
-
     const buffAddKey = Buffer.from(address, 'hex')
     const buffSecKey = secret ? Buffer.from(secret, 'hex') : null
     const v = text
@@ -153,14 +171,15 @@ class WebProperty extends EventEmitter {
       } else {
         let {ih, ...stuff} = text
         let main = {magnet: `magnet:?xs=${BTPK_PREFIX}${address}`, address, infoHash: ih, sequence, active: true, signed: true, sig: buffSig.toString('hex'), stuff}
-        if(propertyData){
-          for(let prop in main){
-            propertyData[prop] = main[prop]
+        fs.writeFile(folder + path.sep + main.address, JSON.stringify(main), error => {
+          if(error){
+            console.log(error)
           }
-        } else {
-          this.properties.push(main)
-        }
-        return callback(null, {...main, netdata: {hash, number}, secret})
+          if(!this.properties.includes(main.address)){
+            this.properties.push(main.address)
+          }
+          return callback(null, {...main, netdata: {hash, number}, secret})
+        })
       }
     })
   }
@@ -169,14 +188,16 @@ class WebProperty extends EventEmitter {
     if (!callback) {
       callback = () => noop
     }
-    if(!check){
-      return callback(new Error('not helping with addresses'))
-    }
     if(!this.properties.includes(address)){
       return callback(new Error('did not find address'))
     }
-    this.properties.splice(this.properties.indexOf(address), 1)
-    return callback(null, address + ' has been removed')
+    fs.rm(folder + path.sep + address, {recursive: true, force: true}, error => {
+      if(error){
+        console.log(error)
+      }
+      this.properties.splice(this.properties.indexOf(address), 1)
+      return callback(null, address + ' has been removed')
+    })
   }
 
   bothGetPut(address, callback){
