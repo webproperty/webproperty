@@ -2,6 +2,8 @@ const DHT = require('bittorrent-dht')
 const ed = require('ed25519-supercop')
 const sha1 = require('simple-sha1')
 const bencode = require('bencode')
+const path = require('path')
+const fs = require('fs')
 const EventEmitter = require('events').EventEmitter
 
 const BTPK_PREFIX = 'urn:btpk:'
@@ -15,9 +17,9 @@ function encodeSigData (msg) {
 
 let dht = null
 let readyAndNotBusy = null
-let check = null
+let folder = null
 
-async function keepData(self){
+async function keepItUpdated(self){
   readyAndNotBusy = false
   for(let i = 0;i < self.properties.length;i++){
     await new Promise((resolve, reject) => {
@@ -29,9 +31,21 @@ async function keepData(self){
         }
       })
     })
+    if(self.properties[i].signed){
+      await new Promise((resolve, reject) => {
+        fs.writeFile(folder + path.sep + self.properties[i].address, JSON.stringify(self.properties[i]), error => {
+          if(error){
+            self.emit('error', error)
+            reject(false)
+          } else {
+            resolve(true)
+          }
+        })
+      })
+    }
   }
   readyAndNotBusy = true
-  setTimeout(() => {if(readyAndNotBusy){keepData(self).catch(error => {self.emit('error', error)})}}, 1800000)
+  setTimeout(() => {if(readyAndNotBusy){keepItUpdated(self).catch(error => {self.emit('error', error)})}}, 1800000)
 }
 
 class WebProperty extends EventEmitter {
@@ -40,22 +54,20 @@ class WebProperty extends EventEmitter {
     if(!opt){
       opt = {}
       opt.dht = dht = new DHT({verify: ed.verify})
-      opt.check = false
+      opt.folder = __dirname
     } else {
       if(!opt.dht){
         opt.dht = new DHT({verify: ed.verify})
       }
-      if(!opt.check){
-        opt.check = false
+      if(!opt.folder || typeof(opt.folder) !== 'string'){
+        opt.folder = __dirname
       }
     }
     dht = opt.dht
-    check = opt.check
     readyAndNotBusy = true
-    if(check){
-      this.properties = []
-      keepData(this).catch(error => {this.emit('error', error)})
-    }
+    folder = path.resolve(path.resolve(opt.folder) + path.sep + 'magnet')
+    this.properties = []
+    keepItUpdated(this).catch(error => {this.emit('error', error)})
   }
 
   resolve (address, callback) {
@@ -100,41 +112,55 @@ class WebProperty extends EventEmitter {
     })
   }
 
-  publish (keypair, infoHash, sequence, stuff, callback) {
+  publish (address, secret, text, sequence, sig, callback) {
 
     if (!callback) {
       callback = () => noop
     }
-    if(!infoHash || typeof(infoHash) !== 'string' || !checkHash.test(infoHash)){
-      return callback(new Error('must have infoHash'))
+    try {
+      for(let prop in text){
+        if(typeof(text[prop]) !== 'string'){
+          throw new Error('text data must be strings')
+        }
+      }
+      if(!checkHash.test(text.ih)){
+        throw new Error('must have infohash')
+      }
+    } catch (error) {
+      return callback(error)
     }
     if(!sequence || typeof(sequence) !== 'number'){
       sequence = 0
     }
-    if((!keypair) || (!keypair.address || !keypair.secret)){
-      keypair = this.createKeypair(false)
+    if(address){
+      return callback(new Error('must have address'))
     }
-    if(!stuff || typeof(stuff) !== 'object' || Array.isArray(stuff)){
-      stuff = {}
+    if(!sig && !secret){
+      return callback(new Error('must have secret or signature'))
     }
 
-    const buffAddKey = Buffer.from(keypair.address, 'hex')
-    const buffSecKey = Buffer.from(keypair.secret, 'hex')
-    const v = {ih: infoHash, ...stuff}
+    let propertyData = this.grab(address)
+
+    const buffAddKey = Buffer.from(address, 'hex')
+    const buffSecKey = secret ? Buffer.from(secret, 'hex') : null
+    const v = text
     const seq = sequence
-    const sig = ed.sign(encodeSigData({seq, v}), buffAddKey, buffSecKey)
-
-    dht.put({k: buffAddKey, v, seq, sig}, (putErr, hash, number) => {
+    const buffSig = sig ? Buffer.from(sig, 'hex') : ed.sign(encodeSigData({seq, v}), buffAddKey, buffSecKey)
+    // const mainletagnet, address: keypair.address, infoHash, sequence}
+    dht.put({k: buffAddKey, v, seq, sig: buffSig}, (putErr, hash, number) => {
       if(putErr){
         return callback(putErr)
       } else {
-        const main = {magnet: `magnet:?xs=${BTPK_PREFIX}${keypair.address}`, address: keypair.address, infoHash, sequence, active: true, signed: true, sig: sig.toString('hex'), stuff}
-        if(check){
-          if(!this.properties.includes(main.address)){
-            this.properties.push(main.address)
+        let {ih, ...stuff} = text
+        let main = {magnet: `magnet:?xs=${BTPK_PREFIX}${address}`, address, infoHash: ih, sequence, active: true, signed: true, sig: buffSig.toString('hex'), stuff}
+        if(propertyData){
+          for(let prop in main){
+            propertyData[prop] = main[prop]
           }
+        } else {
+          this.properties.push(main)
         }
-        return callback(null, {...main, netdata: {hash, number}, secret: keypair.secret})
+        return callback(null, {...main, netdata: {hash, number}, secret})
       }
     })
   }
@@ -151,6 +177,33 @@ class WebProperty extends EventEmitter {
     }
     this.properties.splice(this.properties.indexOf(address), 1)
     return callback(null, address + ' has been removed')
+  }
+
+  bothGetPut(address, callback){
+    if (!callback) {
+      callback = () => noop
+    }
+
+    const buffAddKey = Buffer.from(address, 'hex')
+
+    sha1(buffAddKey, (targetID) => {
+
+      dht.get(targetID, (getErr, getData) => {
+        if (getErr) {
+          return callback(getErr)
+        } else if(getData){
+          dht.put(getData, (putErr, hash, number) => {
+            if(putErr){
+              return callback(null, getData, null)
+            } else {
+              return callback(null, getData, {hash: hash.toString('hex'), number})
+            }
+          })
+        } else if(!getData){
+          return callback(new Error('could not find property'))
+        }
+      })
+    })
   }
 
   current(address, callback){
